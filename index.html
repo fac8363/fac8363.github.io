@@ -22,19 +22,21 @@
             --line-color: #555;
         }
 
-        /* --- APP LAYOUT --- */
-        body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+        /* --- STRICT APP LAYOUT (FIXED FOR MOBILE) --- */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100dvh; /* Exact height of the mobile screen */
+            overflow: hidden; /* STRICTLY disables page zooming and bouncing */
             background-color: var(--bg);
             color: var(--text);
-            margin: 0;
-            overflow: hidden; /* Prevents the whole page from bouncing on mobile */
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
             display: flex;
             flex-direction: column;
-            height: 100dvh; /* Dynamic Viewport Height for mobile browsers */
         }
 
-        /* --- HEADER (Sticky at the top) --- */
+        /* --- HEADER --- */
         .app-header {
             background: rgba(17, 17, 17, 0.95);
             backdrop-filter: blur(10px);
@@ -57,14 +59,11 @@
 
         /* --- THE VIEWPORT (The Pannable Map Area) --- */
         .tree-viewport {
-            flex-grow: 1;
-            overflow: auto;
-            -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling on iOS */
-            padding: 40px;
+            flex: 1; /* Takes up remaining screen space */
+            width: 100%;
+            overflow: auto; /* THIS is where the scrolling happens now */
+            -webkit-overflow-scrolling: touch; 
             position: relative;
-            /* Grid trick to allow content to center itself if smaller than screen */
-            display: grid;
-            place-items: end center; 
         }
 
         /* Hide scrollbars for a cleaner app look */
@@ -73,9 +72,15 @@
 
         /* --- THE FOREST --- */
         .forest {
-            display: flex; gap: 80px; align-items: flex-end; position: relative;
-            padding: 40px 20px 80px 20px; 
-            margin: auto;
+            display: flex; 
+            gap: 120px; 
+            align-items: flex-end; 
+            position: relative;
+            padding: 100px 50px; 
+            
+            /* THE MAGIC BULLET: Forces the tree to stay wide, triggering the viewport to scroll instead of zooming out */
+            width: max-content; 
+            margin: 0 auto; /* Centers it horizontally if loaded on a desktop monitor */
         }
 
         /* --- COLUMNS --- */
@@ -98,7 +103,6 @@
         .col-filler-line.active-hard::after { height: calc(100% + 40px); background: #ff5252; box-shadow: 0 0 10px #ff5252; }
         .col-filler-line.active-med::after { height: calc(100% + 80px); background: #ffb300; box-shadow: 0 0 10px #ffb300; z-index: 3;}
 
-        /* Note: Left/Right coordinates adjusted for 30px gap */
         .parallel-collector { position: absolute; top: -40px; left: 145px; right: 145px; height: 4px; background: var(--line-color); z-index: -2; }
         .parallel-collector::before { content: ''; position: absolute; top: 4px; left: 0; width: 4px; height: 36px; background: var(--line-color); }
         .parallel-collector::after { content: ''; position: absolute; top: 4px; right: 0; width: 4px; height: 36px; background: var(--line-color); }
@@ -139,7 +143,7 @@
             border: 1px solid #333; position: relative; z-index: 2; margin-bottom: 25px;
             transition: transform 0.2s ease;
         }
-        /* Mobile Active state (replaces hover on touch devices) */
+        /* Mobile Active state */
         .node-card:active { transform: scale(0.98); }
         
         .boss-card, .gateway-card { border-width: 2px !important; }
@@ -187,29 +191,27 @@
         .skill-name-wrapper { display: flex; align-items: center; gap: 8px; }
         .skill-name { font-weight: bold; color: #ccc; font-size: 0.9rem; }
         
-        /* Larger tap target for mobile icons */
         .guide-icon { cursor: pointer; font-size: 1.1rem; filter: grayscale(100%); padding: 5px; margin: -5px; transition: all 0.2s; }
         .guide-icon:active { transform: scale(1.2); filter: grayscale(0%); }
         .skill-desc { font-size: 0.75rem; color: var(--subtext); line-height: 1.3; font-style: italic; display: block; padding-left: 2px;}
 
-        /* Larger tap targets for checkboxes */
         .skill-header input { accent-color: var(--unlocked-accent); cursor: pointer; width: 22px; height: 22px; }
         .counter-btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius:6px; cursor: pointer; font-size: 0.9rem; font-weight:bold; }
         .counter-btn.done { background: var(--unlocked-accent); border-color: var(--unlocked-accent); color: #000; }
 
-        /* Mobile FAB (Floating Action Button) for Reset */
+        /* Mobile FAB for Reset */
         .reset-btn { 
             position: fixed; bottom: 20px; right: 20px; 
             background: rgba(0,0,0,0.8); color: #888; 
             border: 2px solid #333; border-radius: 50%; 
             width: 50px; height: 50px; display: flex; justify-content: center; align-items: center;
-            cursor: pointer; z-index: 100; font-size: 1.2rem; backdrop-filter: blur(5px);
+            cursor: pointer; z-index: 100; font-size: 1.5rem; backdrop-filter: blur(5px);
         }
 
         /* --- MODAL (POPUP) --- */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: flex-end; /* Bottom sheet on mobile */
+            background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: flex-end;
             backdrop-filter: blur(5px);
         }
         .modal-content {
@@ -234,7 +236,7 @@
             <option value="kitchen">🔪 Kitchen RPG</option>
             <option value="crochet">🧶 Yarn Mastery</option>
         </select>
-        <p class="subtitle">Swipe to explore the Tree</p>
+        <p class="subtitle">Swipe to explore the Skill Tree</p>
     </div>
 
     <div class="tree-viewport" id="viewport">
@@ -355,9 +357,9 @@
         };
 
         let currentProjectKey = 'kitchen';
-        let state = JSON.parse(localStorage.getItem('skillTree_v12')) || {};
+        let state = JSON.parse(localStorage.getItem('skillTree_v13')) || {};
 
-        function save() { localStorage.setItem('skillTree_v12', JSON.stringify(state)); render(); }
+        function save() { localStorage.setItem('skillTree_v13', JSON.stringify(state)); render(); }
         function resetData() { if(confirm("Reset progress for this project?")) { state = {}; save(); } }
         function toggle(key) { state[key] = !state[key]; save(); }
         function increment(key, max) { let val = state[key] || 0; if(val < max) state[key] = val + 1; save(); }
@@ -607,13 +609,11 @@
         // --- MOBILE UX SCRIPT ---
         function scrollToStart() {
             const vp = document.getElementById('viewport');
-            // Scrolls to the bottom center of the tree on initial load so the user starts at the "roots"
             vp.scrollTop = vp.scrollHeight;
             vp.scrollLeft = (vp.scrollWidth - vp.clientWidth) / 2;
         }
 
         render();
-        // Wait a tiny bit for render to finish, then center the viewport on the roots
         setTimeout(scrollToStart, 100);
 
     </script>
