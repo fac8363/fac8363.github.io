@@ -9,7 +9,11 @@
     <title>Branch Out - Skill Trees</title>
     
     <script>
-        if (localStorage.getItem('branchOutTheme') === 'dark') {
+        // Apply settings immediately to prevent style flashes on load
+        let appSettings = JSON.parse(localStorage.getItem('branchOutSettings_v2')) || {
+            theme: 'light', compact: false, motion: false, hardcore: false
+        };
+        if (appSettings.theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#111111');
         }
@@ -47,6 +51,9 @@
             --border-color: #333333;
         }
 
+        /* Prevent layout shifts */
+        *, *::before, *::after { box-sizing: border-box; }
+
         html, body {
             margin: 0; padding: 0; width: 100vw; height: 100dvh; 
             overflow: hidden; background-color: var(--bg); color: var(--text);
@@ -54,6 +61,23 @@
             background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
             background-size: 20px 20px; transition: background-color 0.3s, color 0.3s;
         }
+
+        /* --- SETTINGS MODIFIERS --- */
+        .compact-ui .node-card { width: 200px; padding: 12px; border-radius: 10px; }
+        .compact-ui .title { font-size: 0.75rem; margin-bottom: 8px; }
+        .compact-ui .skill-group { padding: 3px; margin-bottom: 6px; }
+        .compact-ui .skill-name { font-size: 0.75rem; }
+        .compact-ui .skill-desc { font-size: 0.65rem; }
+        .compact-ui .guide-icon { font-size: 0.9rem; }
+        .compact-ui .star-display { font-size: 0.7rem; }
+
+        .reduce-motion * { transition: none !important; animation: none !important; }
+        .hardcore-mode .guide-icon { display: none !important; }
+
+        /* Settings Toggle Elements */
+        .settings-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; cursor: pointer; font-weight: bold; font-size: 0.95rem; color: var(--text);}
+        .settings-row input { accent-color: var(--theme-left); transform: scale(1.2); cursor: pointer;}
+        .settings-section-title { font-size: 0.9rem; text-transform: uppercase; color: var(--subtext); margin-bottom: 10px; margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;}
 
         /* --- LANDING MENU --- */
         .landing-menu {
@@ -80,6 +104,7 @@
         .btn-start:active { transform: scale(0.98); opacity: 0.8; }
         .btn-faq { background: transparent; color: var(--subtext); border: none; padding: 10px; font-size: 0.9rem; cursor: pointer; text-decoration: underline; margin-top: 10px; transition: color 0.2s; }
         .btn-faq:hover { color: var(--text); }
+        .btn-home-settings { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 50%; width: 50px; height: 50px; cursor: pointer; transition: 0.3s; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 100;}
 
         /* --- APP CONTAINER --- */
         .app-container {
@@ -127,7 +152,7 @@
         }
         .active-pillar .upper-branches { opacity: 1; visibility: visible; pointer-events: auto; margin-bottom: 0; }
 
-        /* --- BRANCHING (No lines) --- */
+        /* --- BRANCHING --- */
         .branch-row { display: flex; gap: 30px; position: relative; margin-bottom: 30px; justify-content: center; }
         .branch-col { position: relative; display: flex; flex-direction: column-reverse; align-items: center; gap: 30px; }
         .foundation-row { display: flex; gap: 30px; position: relative; justify-content: center; }
@@ -154,10 +179,11 @@
         .theme-hard .title { color: #ff5252; }
         .title { font-weight: bold; text-transform: uppercase; font-size: 0.9rem; margin-bottom: 15px; text-align: center; }
 
-        /* --- FOG OF WAR (UPDATED) --- */
-        .dist-locked-1 { opacity: 0.6; filter: blur(2px) grayscale(100%); pointer-events: none; }
-        .dist-locked-2 { opacity: 0.15; filter: blur(4px) grayscale(100%); pointer-events: none; }
-        .dist-locked-3 { opacity: 0; pointer-events: none; }
+        /* --- FOG OF WAR --- */
+        .dist-playable { opacity: 1; pointer-events: auto; }
+        .dist-locked-1 { opacity: 0.6; filter: blur(2px) grayscale(100%); pointer-events: none; user-select: none; }
+        .dist-locked-2 { opacity: 0.15; filter: blur(4px) grayscale(100%); pointer-events: none; user-select: none; }
+        .dist-locked-3 { opacity: 0; pointer-events: none; visibility: hidden; }
 
         /* --- BOSS PULSING --- */
         .unlocked-boss.theme-easy { animation: pulse-easy 2s infinite; }
@@ -168,27 +194,24 @@
         @keyframes pulse-hard { 0% { box-shadow: 0 4px 0 #e04444, 0 0 5px rgba(255,82,82,0.2); } 50% { box-shadow: 0 4px 0 #e04444, 0 0 25px rgba(255,82,82,0.6); } 100% { box-shadow: 0 4px 0 #e04444, 0 0 5px rgba(255,82,82,0.2); } }
 
         /* --- INPUTS & ICONS --- */
-        .skill-group { margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; transition: border-color 0.3s; }
+        .skill-group { margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; transition: border-color 0.3s; cursor: pointer; border-radius: 6px; padding: 5px; }
+        .skill-group:hover { background: rgba(0,0,0,0.03); }
         .skill-group:last-child { border-bottom: none; }
         .skill-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         .skill-name-wrapper { display: flex; align-items: center; gap: 8px; }
         .skill-name { font-weight: bold; color: var(--text); font-size: 0.85rem; transition: color 0.3s;}
         .guide-icon { cursor: pointer; font-size: 1.1rem; filter: grayscale(100%); padding: 5px; margin: -5px; transition: all 0.2s; }
         .guide-icon:active { transform: scale(1.2); filter: grayscale(0%); }
-        .task-rating-display { font-size: 0.75rem; margin-top: -2px; margin-bottom: 4px; letter-spacing: 1px; }
-        .star-filled { color: var(--star-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.4); }
-        .star-empty { color: var(--subtext); opacity: 0.5;}
-        .skill-desc { font-size: 0.7rem; color: var(--subtext); line-height: 1.3; font-style: italic; display: block; padding-left: 2px; transition: color 0.3s;}
-        .skill-header input { accent-color: var(--unlocked-accent); cursor: pointer; width: 20px; height: 20px; }
+        .star-display { font-size: 0.8rem; color: var(--star-gold); letter-spacing: 2px; }
+        .skill-desc { font-size: 0.7rem; color: var(--subtext); line-height: 1.3; font-style: italic; display: block; padding-left: 2px; transition: color 0.3s; margin-top: 2px;}
 
         /* --- FLOATING CONTROLS --- */
         .floating-controls { position: fixed; bottom: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
         .btn-ui {
-            background: var(--btn-bg); color: var(--subtext); border: 2px solid var(--border-color); border-radius: 50%; 
-            width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1.5rem; backdrop-filter: blur(5px); font-weight: bold; transition: all 0.3s;
+            background: var(--btn-bg); color: var(--text); border: 2px solid var(--border-color); border-radius: 50%; 
+            width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1.5rem; backdrop-filter: blur(5px); font-weight: bold; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
         .btn-ui:active { transform: scale(0.9); color: var(--text); border-color: var(--theme-left); }
-        .reset-btn-container { position: fixed; bottom: 20px; right: 20px; z-index: 100; }
 
         .nav-arrow {
             position: absolute; top: 50%; transform: translateY(-50%); background: var(--btn-bg); color: var(--subtext); border: 2px solid var(--border-color); 
@@ -200,26 +223,22 @@
         .nav-arrow.right { right: 20px; }
 
         /* --- MODALS --- */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: flex-end; backdrop-filter: blur(5px); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 6000; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
         .modal-content {
-            background: var(--card-bg); border-top: 4px solid var(--theme-left); border-radius: 20px 20px 0 0; padding: 30px; width: 100%; max-height: 80vh; overflow-y: auto; color: var(--text);
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.2); position: relative; animation: slideUp 0.3s ease-out; transition: background 0.3s, color 0.3s;
+            background: var(--card-bg); border-top: 4px solid var(--theme-left); border-radius: 20px; padding: 25px; width: 280px; max-height: 85vh; overflow-y: auto; color: var(--text);
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.2); position: relative; animation: slideUp 0.3s ease-out; transition: background 0.3s, color 0.3s; text-align: left;
         }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .modal-title { font-size: 1.4rem; margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; text-transform: uppercase;}
         .modal-body { line-height: 1.6; font-size: 0.95rem; color: var(--text); padding-bottom: 20px;}
         .close-btn { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: var(--subtext); }
 
-        #ratingModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; z-index: 2000; }
-        #ratingModal .modal-content {
-            position: fixed; background: var(--card-bg); border: 2px solid var(--theme-left); border-radius: 12px; padding: 15px 20px; width: 250px; color: var(--text);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: popIn 0.2s ease-out;
-        }
-        @keyframes popIn { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        #ratingModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; z-index: 7000; }
+        #ratingModal .modal-content { text-align: center; }
         .star-rating { display: flex; flex-direction: row-reverse; justify-content: center; gap: 8px; margin-top: 10px; }
         .star-rating input { display: none; }
         .star-rating label { font-size: 2.5rem; color: var(--subtext); opacity: 0.3; cursor: pointer; transition: 0.2s ease; }
-        .star-rating label:hover, .star-rating label:hover ~ label { color: var(--star-gold); opacity: 1; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); transform: scale(1.1); }
+        .star-rating label:hover, .star-rating label:hover ~ label, .star-rating input:checked ~ label { color: var(--star-gold); opacity: 1; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); transform: scale(1.1); }
         .rating-prompt { text-align: center; margin-bottom: 5px; font-size: 0.9rem; color: var(--subtext);}
         .clear-rating-btn { display: block; text-align: center; margin-top: 15px; color: var(--subtext); font-size: 0.8rem; text-decoration: underline; cursor: pointer; transition: color 0.2s; }
         .clear-rating-btn:hover { color: var(--theme-hard); }
@@ -229,6 +248,7 @@
 <body>
 
     <div id="landingMenu" class="landing-menu">
+        <button class="btn-home-settings" onclick="document.getElementById('settingsModal').style.display='flex'" title="Settings">⚙️</button>
         <h1 class="app-title-main">🌿 Branch Out</h1>
         <p class="app-tagline">Choose your path to mastery.</p>
         
@@ -244,7 +264,7 @@
             </select>
             <button class="btn-start" onclick="startJourney()">Begin Journey</button>
         </div>
-        <button class="btn-faq" onclick="openFAQ()">What is Branch Out?</button>
+        <button class="btn-faq" onclick="document.getElementById('faqModal').style.display='flex'">What is Branch Out?</button>
     </div>
 
     <div id="appContainer" class="app-container">
@@ -273,10 +293,42 @@
             <button class="btn-ui" onclick="changeZoom(0.15)" title="Zoom In">+</button>
             <button class="btn-ui" onclick="changeZoom(-0.15)" title="Zoom Out">−</button>
             <button class="btn-ui" onclick="centerCamera()" title="Recenter View" style="font-size: 1.1rem;">🎯</button>
-            <button class="btn-ui" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme" style="font-size: 1.1rem;">🌙</button>
+            <button class="btn-ui" onclick="document.getElementById('settingsModal').style.display='flex'" title="Settings" style="font-size: 1.1rem;">⚙️</button>
         </div>
-        <div class="reset-btn-container">
-            <button class="btn-ui" onclick="resetData()" title="Reset Progress" style="font-size: 1.2rem;">↻</button>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal" onclick="closeModal('settingsModal', event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeModal('settingsModal')">&times;</span>
+            <h2 class="modal-title" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Settings</h2>
+            
+            <div class="settings-section-title">💾 Data & Storage</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="exportData()" style="flex: 1; padding: 10px; background: var(--bg); border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text); font-weight: bold; transition: 0.2s;">Export Save</button>
+                <button onclick="document.getElementById('importFile').click()" style="flex: 1; padding: 10px; background: var(--bg); border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text); font-weight: bold; transition: 0.2s;">Import Save</button>
+                <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importData(event)">
+            </div>
+            <button onclick="wipeData()" style="width: 100%; padding: 10px; background: #ff5252; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Wipe All Data</button>
+
+            <div class="settings-section-title">🎨 Appearance</div>
+            <label class="settings-row">
+                <span>Dark Mode</span>
+                <input type="checkbox" id="setting-theme" onchange="toggleSetting('theme')">
+            </label>
+            <label class="settings-row">
+                <span>Compact UI</span>
+                <input type="checkbox" id="setting-compact" onchange="toggleSetting('compact')">
+            </label>
+            <label class="settings-row">
+                <span>Reduce Motion</span>
+                <input type="checkbox" id="setting-motion" onchange="toggleSetting('motion')">
+            </label>
+
+            <div class="settings-section-title">⚙️ Gameplay</div>
+            <label class="settings-row">
+                <span title="Hides the Field Notes guide icon">Hardcore Mode</span>
+                <input type="checkbox" id="setting-hardcore" onchange="toggleSetting('hardcore')">
+            </label>
         </div>
     </div>
 
@@ -284,7 +336,7 @@
         <div class="modal-content" onclick="event.stopPropagation()">
             <span class="close-btn" onclick="closeModal('faqModal')">&times;</span>
             <h2 class="modal-title">Welcome to Branch Out</h2>
-            <div class="modal-body">
+            <div class="modal-body" style="text-align: left;">
                 <strong>What is this?</strong><br>
                 Branch Out is a real-life skill tree. It breaks down complex hobbies into a visual map of interconnected skills, just like a video game.<br><br>
                 <strong>How to Play:</strong>
@@ -303,8 +355,8 @@
     <div class="modal-overlay" id="guideModal" onclick="closeModal('guideModal', event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <span class="close-btn" onclick="closeModal('guideModal')">&times;</span>
-            <h2 class="modal-title" id="modalTitle">Skill Guide</h2>
-            <div class="modal-body" id="modalBody"></div>
+            <h2 class="modal-title" id="modalTitle" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Skill Guide</h2>
+            <div class="modal-body" id="modalBody" style="text-align: left;"></div>
         </div>
     </div>
 
@@ -324,23 +376,79 @@
     </div>
 
     <script>
-        function toggleTheme() {
-            const html = document.documentElement;
-            if (html.getAttribute('data-theme') === 'dark') {
-                html.removeAttribute('data-theme');
-                localStorage.setItem('branchOutTheme', 'light');
-                document.getElementById('themeToggleBtn').innerText = '🌙';
-                document.querySelector('meta[name="theme-color"]').setAttribute('content', '#fdf8e4');
-            } else {
-                html.setAttribute('data-theme', 'dark');
-                localStorage.setItem('branchOutTheme', 'dark');
-                document.getElementById('themeToggleBtn').innerText = '☀️';
+        // --- APP SETTINGS LOGIC ---
+        function applySettings() {
+            if (appSettings.theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
                 document.querySelector('meta[name="theme-color"]').setAttribute('content', '#111111');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                document.querySelector('meta[name="theme-color"]').setAttribute('content', '#fdf8e4');
+            }
+            if(document.getElementById('setting-theme')) document.getElementById('setting-theme').checked = appSettings.theme === 'dark';
+
+            document.body.classList.toggle('compact-ui', appSettings.compact);
+            if(document.getElementById('setting-compact')) document.getElementById('setting-compact').checked = appSettings.compact;
+
+            document.body.classList.toggle('reduce-motion', appSettings.motion);
+            if(document.getElementById('setting-motion')) document.getElementById('setting-motion').checked = appSettings.motion;
+
+            document.body.classList.toggle('hardcore-mode', appSettings.hardcore);
+            if(document.getElementById('setting-hardcore')) document.getElementById('setting-hardcore').checked = appSettings.hardcore;
+        }
+
+        function toggleSetting(key) {
+            if (key === 'theme') {
+                appSettings.theme = appSettings.theme === 'dark' ? 'light' : 'dark';
+            } else {
+                appSettings[key] = !appSettings[key];
+            }
+            localStorage.setItem('branchOutSettings_v2', JSON.stringify(appSettings));
+            applySettings();
+        }
+
+        window.addEventListener('DOMContentLoaded', applySettings);
+
+        // --- DATA MANAGEMENT ---
+        function exportData() {
+            const dataStr = JSON.stringify(state, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `branch_out_save_${new Date().getTime()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedState = JSON.parse(e.target.result);
+                    state = importedState;
+                    save();
+                    alert("Save data imported successfully!");
+                    closeModal('settingsModal');
+                } catch (err) {
+                    alert("Error: Invalid save file.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ""; // reset
+        }
+
+        function wipeData() {
+            if (confirm("Are you sure? This will wipe all progress across all skill trees. This cannot be undone.")) {
+                state = {};
+                save();
+                closeModal('settingsModal');
             }
         }
-        window.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('branchOutTheme') === 'dark') document.getElementById('themeToggleBtn').innerText = '☀️';
-        });
 
         // --- ALL 7 JOURNEYS DATA ---
         const projectLibrary = {
@@ -354,7 +462,7 @@
                             {
                                 theme: 'theme-easy',
                                 nodes: [
-                                    { id: "c_tool", passReq: 7, title: "Equipment", skills: [{ name: "Cast Iron", desc: "Seasoning & Care"}, { name: "Sharpening", desc: "Whetstone usage" }] },
+                                    { id: "c_tool", passReq: 7, title: "Equipment", skills: [{ name: "Cast Iron", desc: "Seasoning & Care", instructions: "<strong>How to care for Cast Iron:</strong><ol><li>Wash with water.</li><li>Dry completely on the stove over medium heat.</li><li>Rub the inside with a drop of Canola oil.</li><li>Heat until it just starts to smoke, then turn off.</li></ol>"}, { name: "Sharpening", desc: "Whetstone usage" }] },
                                     { id: "c_boss0", passReq: 4, title: "BOSS: Station Setup", skills: [{name:"Ready for Service", desc:"Tools sharp, pans seasoned"}], isBoss: true }
                                 ],
                                 branches: [
@@ -365,7 +473,7 @@
                             {
                                 theme: 'theme-easy',
                                 nodes: [
-                                    { id: "c_prep", passReq: 7, title: "Prep Cook", skills: [{ name: "Knife Skills", desc: "Dice onion, mince garlic"}, { name: "Mise en Place", desc: "Organize ingredients" }] },
+                                    { id: "c_prep", passReq: 7, title: "Prep Cook", skills: [{ name: "Knife Skills", desc: "Dice onion, mince garlic", instructions: "<strong>How to carefully dice an onion:</strong><ol><li><strong>Cut the stem:</strong> Slice off the stem end of the onion, but leave the root intact.</li><li><strong>Halve it:</strong> Rest flat side on board and cut in half.</li><li><strong>Horizontal cuts:</strong> Make 2-3 cuts parallel to the board.</li><li><strong>Vertical cuts:</strong> Make cuts down toward the board.</li><li><strong>The Chop:</strong> Cut across vertical lines for squares.</li></ol>"}, { name: "Mise en Place", desc: "Organize ingredients" }] },
                                     { id: "c_boss1", passReq: 4, title: "BOSS: Perfect Salad", skills: [{name:"Vinaigrette & Cuts", desc:"Uniform veg with basic dressing"}], isBoss: true }
                                 ],
                                 branches: [
@@ -706,22 +814,25 @@
             }
         };
 
-        let state = JSON.parse(localStorage.getItem('skillTree_proto_v5')) || {};
+        let state = JSON.parse(localStorage.getItem('skillTree_proto_v6')) || {};
         let pendingTask = null;
         let currentZoom = 1.0;
         let panX = 0, panY = 0;
         let activeIndex = 0; 
         let currentProjectKey = 'kitchen';
 
-        function save() { localStorage.setItem('skillTree_proto_v5', JSON.stringify(state)); render(); }
-        function resetData() { if(confirm("Reset progress for this project?")) { state = {}; save(); } }
+        // Variables for the currently open guide
+        let activeGuideKey = null;
+        let activeGuideTitle = null;
+        let activeGuideDefault = null;
 
-        // --- STAR MATH ---
+        function save() { localStorage.setItem('skillTree_proto_v6', JSON.stringify(state)); render(); }
+
+        // --- STAR DOOR LOGIC ---
         function getEarnedStars(node) {
             if(!node || !node.skills) return 0;
             return node.skills.reduce((sum, s) => {
-                const key = node.id + "_" + s.name + "_rating";
-                return sum + (state[key] || 0);
+                return sum + (state[node.id + "_" + s.name + "_rating"] || 0);
             }, 0);
         }
 
@@ -747,14 +858,12 @@
         }
 
         function centerCamera() {
-            panY = 0;
-            currentZoom = 1.0; 
+            panY = 0; currentZoom = 1.0; 
             centerOnPillar(activeIndex, true);
         }
         
         function resetCamera() {
-            panY = 0;
-            currentZoom = 1.0; activeIndex = 0;
+            panY = 0; currentZoom = 1.0; activeIndex = 0;
             render();
             setTimeout(() => { centerOnPillar(0, false); }, 50);
         }
@@ -862,17 +971,57 @@
             render(); 
         }
 
-        function openGuide(title, htmlContent) {
+        function closeModal(modalId, event) {
+            if (event && event.target.id !== modalId) return;
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // --- EDITABLE GUIDE LOGIC ---
+        function openGuide(key, title, defaultHtml) {
+            activeGuideKey = key;
+            activeGuideTitle = title;
+            activeGuideDefault = defaultHtml;
+            
             document.getElementById('modalTitle').innerText = title;
-            document.getElementById('modalBody').innerHTML = htmlContent;
+            
+            let noteContent = state[key + "_notes"];
+            if (!noteContent && noteContent !== "") {
+                noteContent = defaultHtml || `<em>Field notes for <strong>${title}</strong> are currently empty. Practice this skill to develop your own intuition!</em>`;
+            }
+            
+            document.getElementById('modalBody').innerHTML = `
+                <div id="guideText" style="text-align:left; white-space: pre-wrap;">${noteContent}</div>
+                <button onclick="editGuide()" style="width:100%; margin-top:20px; padding:10px; background:var(--bg); border:2px solid var(--border-color); border-radius:8px; cursor:pointer; color:var(--text); font-weight:bold;">✏️ Edit Notes</button>
+            `;
+            
             document.getElementById('modalTitle').style.color = projectLibrary[currentProjectKey].colors.left;
             document.querySelector('#guideModal .modal-content').style.borderTopColor = projectLibrary[currentProjectKey].colors.left;
             document.getElementById('guideModal').style.display = 'flex';
         }
 
-        function closeModal(modalId, event) {
-            if (event && event.target.id !== modalId) return;
-            document.getElementById(modalId).style.display = 'none';
+        function editGuide() {
+            let noteContent = state[activeGuideKey + "_notes"] !== undefined ? state[activeGuideKey + "_notes"] : activeGuideDefault;
+            
+            // Clean up HTML tags if they are editing the default for the first time
+            if (noteContent === activeGuideDefault) {
+                noteContent = noteContent.replace(/<[^>]*>?/gm, ''); 
+            }
+            if (!noteContent || noteContent.includes("are currently empty")) noteContent = "";
+
+            document.getElementById('modalBody').innerHTML = `
+                <textarea id="guideEditor" style="width:100%; box-sizing:border-box; height:180px; background:var(--bg); color:var(--text); border:1px solid var(--border-color); border-radius:8px; padding:10px; font-family:inherit; margin-bottom:10px;">${noteContent}</textarea>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="saveGuide()" style="flex:1; padding:10px; background:var(--theme-left); color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">💾 Save</button>
+                    <button onclick="openGuide(activeGuideKey, activeGuideTitle, activeGuideDefault)" style="flex:1; padding:10px; background:var(--bg); border:2px solid var(--border-color); border-radius:8px; cursor:pointer; color:var(--text); font-weight:bold;">Cancel</button>
+                </div>
+            `;
+        }
+
+        function saveGuide() {
+            const newText = document.getElementById('guideEditor').value;
+            state[activeGuideKey + "_notes"] = newText;
+            save(); // Updates localStorage
+            openGuide(activeGuideKey, activeGuideTitle, activeGuideDefault); // Re-render in read mode
         }
 
         // --- RENDER ENGINE ---
@@ -889,6 +1038,16 @@
             if (project.rightTree) renderTreeColumn(pRow, project.rightTree, 'theme-right');
             
             container.appendChild(pRow);
+             centerOnPillar(activeIndex, false);
+
+
+            const pillars = document.querySelectorAll('.parallel-col');
+            pillars.forEach((p, i) => {
+                p.classList.toggle('active-pillar', i === activeIndex);
+                p.classList.toggle('inactive-pillar', i !== activeIndex);
+            });
+
+            container.style.transform = `translateX(${panX}px) translateY(${panY}px) scale(${currentZoom})`;
         }
 
         function renderTreeColumn(container, treeData, theme) {
@@ -1030,7 +1189,6 @@
             else if (dist === 2) distClass = 'dist-locked-2';
             else if (dist >= 3) distClass = 'dist-locked-3';
             
-            // Create the wrapper to hold the badge outside the blurred card
             const wrapper = document.createElement('div');
             wrapper.style.position = 'relative';
 
@@ -1055,11 +1213,9 @@
                 const checked = (val === true) ? 'checked' : '';
                 const control = `<input type="checkbox" ${checked} onchange="attemptToggle('${key}', event)">`;
 
-                let guideHtml = '';
-                if (s.instructions) {
-                    const safeHTML = s.instructions.replace(/"/g, '&quot;').replace(/'/g, "\\'").replace(/(\r\n|\n|\r)/gm, "");
-                    guideHtml = `<span class="guide-icon" onclick="openGuide('${s.name}', '${safeHTML}')">📖</span>`;
-                }
+                // Guide HTML Safely Built
+                let safeHTML = s.instructions ? s.instructions.replace(/"/g, '&quot;').replace(/'/g, "\\'").replace(/(\r\n|\n|\r)/gm, "") : "";
+                let guideHtml = `<span class="guide-icon" onclick="event.stopPropagation(); openGuide('${key}', '${s.name}', '${safeHTML}')">📖</span>`;
                 
                 let starsStr = '';
                 if (ratingVal) {
@@ -1069,12 +1225,12 @@
                 }
 
                 return `
-                    <div class="skill-group">
+                    <div class="skill-group" onclick="attemptToggle('${key}', event)">
                         <div class="skill-header">
                             <div class="skill-name-wrapper"><span class="skill-name">${s.name}</span>${guideHtml}</div>
                             ${control}
                         </div>
-                        <div class="task-rating-display">${starsStr}</div>
+                        <div class="star-display">${starsStr}</div>
                         <span class="skill-desc">${s.desc}</span>
                     </div>
                 `;
