@@ -1060,7 +1060,7 @@
                     rootWrapper.addEventListener('click', () => {
                         const pillars = Array.from(document.querySelectorAll('.parallel-col'));
                         const idx = pillars.indexOf(col);
-                        if(idx !== activeIndex) centerOnPillar(idx, true);
+                        if(idx !== activeIndex) centerOnPillar(idx, false);
                     });
 
                     const upperWrapper = document.createElement('div');
