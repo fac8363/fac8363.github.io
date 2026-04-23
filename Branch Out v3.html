@@ -859,7 +859,7 @@
 
         function centerCamera() {
             panY = 0; currentZoom = 1.0; 
-            centerOnPillar(activeIndex, false);
+            centerOnPillar(activeIndex, true);
         }
         
         function resetCamera() {
@@ -1038,6 +1038,7 @@
             if (project.rightTree) renderTreeColumn(pRow, project.rightTree, 'theme-right');
             
             container.appendChild(pRow);
+            centerOnPillar(activeIndex, false);
             
             const pillars = document.querySelectorAll('.parallel-col');
             pillars.forEach((p, i) => {
@@ -1060,7 +1061,7 @@
                     rootWrapper.addEventListener('click', () => {
                         const pillars = Array.from(document.querySelectorAll('.parallel-col'));
                         const idx = pillars.indexOf(col);
-                        if(idx !== activeIndex) centerOnPillar(idx, false);
+                        if(idx !== activeIndex) centerOnPillar(idx, true);
                     });
 
                     const upperWrapper = document.createElement('div');
