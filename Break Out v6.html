@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#fdf8e4">
+    <title>Branch Out - Skill Trees</title>
+    
+    <script>
+        let appSettings = JSON.parse(localStorage.getItem('branchOutSettings_v2')) || {
+            theme: 'light', compact: false, motion: false, hardcore: false
+        };
+        if (appSettings.theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#111111');
+        }
+    </script>
+
+    <style>
+
+        :root {
+            /* --- DYNAMIC BIOME COLORS --- */
+            --biome-bg: #fdf8e4;
+            --biome-header: rgba(253, 248, 228, 0.85);
+            
+            /* --- LIGHT THEME --- */
+            --bg: var(--biome-bg);
+            --header-bg: var(--biome-header);
+            
+            --card-bg: #ffffff;      
+            --text: #2c3e50;         
+            --subtext: #7f8c8d;      
+            --dot-color: rgba(0, 0, 0, 0.05);
+            --modal-bg: rgba(255, 255, 255, 0.8);
+            --btn-bg: rgba(255, 255, 255, 0.9);
+            --border-color: #eeeeee;
+            
+            --theme-left: #ff7043; 
+            --theme-right: #f06292;
+            --unlocked-accent: #00e676;
+            --star-gold: #f1c40f;
+
+            /* SVG Specific Colors */
+            --svg-bg-center: #ffffff;
+            --svg-bg-edge: #f5f0e1;
+            --dot-inactive: #dcdcdc;
+        }
+
+        [data-theme="dark"] {
+            /* --- DARK THEME --- */
+            --bg: #111111;
+            --card-bg: #1a1a1a;
+            --text: #eeeeee;
+            --subtext: #888888;
+            --dot-color: rgba(255, 255, 255, 0.05);
+            --modal-bg: rgba(17, 17, 17, 0.8);
+            --header-bg: rgba(17, 17, 17, 0.9);
+            --btn-bg: rgba(0, 0, 0, 0.8);
+            --border-color: #333333;
+            
+            --svg-bg-center: #2a2a2a;
+            --svg-bg-edge: #111111;
+            --dot-inactive: #444444;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html, body {
+            margin: 0; padding: 0; width: 100vw; height: 100dvh; 
+            overflow: hidden; background-color: var(--bg); color: var(--text);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
+            background-size: 20px 20px; transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- AMBIENT BACKGROUND ANIMATIONS --- */
+        .ambient-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .particle { position: absolute; fill: var(--theme-left); opacity: 0.1; animation: float 20s infinite linear; transition: fill 0.5s; }
+        .reduce-motion .particle { animation: none !important; }
+        @keyframes float { 0% { transform: translate(0, 0) rotate(0deg); opacity: 0; } 10% { opacity: 0.2; } 90% { opacity: 0.2; } 100% { transform: translate(100vw, -100vh) rotate(360deg); opacity: 0; } }
+
+        /* --- UI & INTERACTION ANIMATIONS --- */
+        .anim-bump { animation: bump 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes bump { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+
+        .ftue-pulse { animation: ftue-glow 2s infinite; border-color: var(--theme-left) !important; }
+        @keyframes ftue-glow { 
+            0% { box-shadow: 0 0 0 0 var(--theme-left); } 
+            70% { box-shadow: 0 0 0 15px transparent; } 
+            100% { box-shadow: 0 0 0 0 transparent; } 
+        }
+
+        .starburst-container { position: absolute; top: 50%; left: 50%; width: 0; height: 0; pointer-events: none; z-index: 9999; }
+        .burst-star { position: absolute; font-size: 2.5rem; color: var(--star-gold); top: -20px; left: -20px; opacity: 0; animation: shoot-star 0.8s ease-out forwards; text-shadow: 0 0 15px rgba(255,215,0,0.8); }
+        @keyframes shoot-star { 0% { transform: rotate(0deg) translate(0, 0) scale(0.5); opacity: 1; } 100% { transform: rotate(var(--angle)) translate(140px, 0) scale(1.5) rotate(180deg); opacity: 0; } }
+
+        .play-boss-unlock { animation: boss-halo 2s ease-out; }
+        @keyframes boss-halo { 0% { box-shadow: 0 0 0 0px var(--star-gold), inset 0 0 0 0px var(--star-gold); border-color: var(--star-gold); } 50% { box-shadow: 0 0 60px 15px rgba(241, 196, 15, 0), inset 0 0 30px 10px rgba(241, 196, 15, 0.6); border-color: var(--star-gold); } 100% { box-shadow: 0 0 0 0px rgba(241, 196, 15, 0), inset 0 0 0 0px rgba(241, 196, 15, 0); } }
+
+        .anim-shatter { animation: shatter 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; pointer-events:none; font-size: 2.5rem; background: transparent !important; border: none !important; box-shadow: none !important; }
+        @keyframes shatter { 0% { transform: translateX(-50%) scale(1); opacity: 1; filter: brightness(1) drop-shadow(0 0 10px gold); } 20% { transform: translateX(-50%) scale(1.5) rotate(-15deg); filter: brightness(1.5) drop-shadow(0 0 20px gold); } 40% { transform: translateX(-50%) scale(1.5) rotate(15deg); } 100% { transform: translateX(-50%) scale(4) translateY(-30px); opacity: 0; filter: brightness(3); } }
+
+        .anim-surge { stroke: var(--star-gold) !important; animation: surge-fade 2s ease-out forwards; }
+        @keyframes surge-fade { 0% { stroke-width: 12; filter: drop-shadow(0 0 10px var(--star-gold)); } 100% { stroke-width: 6; filter: drop-shadow(0 0 0px var(--star-gold)); } }
+
+        /* Accessibility protection for UI animations */
+        .reduce-motion .burst-star, .reduce-motion .anim-shatter { display: none !important; }
+        .reduce-motion .anim-bump, .reduce-motion .play-boss-unlock, .reduce-motion .anim-surge { animation: none !important; }
+
+        /* --- SETTINGS & CARDS --- */
+        .compact-ui .node-card { width: 200px; padding: 12px; border-radius: 10px; }
+        .compact-ui .title { font-size: 0.75rem; margin-bottom: 8px; }
+        .compact-ui .skill-group { padding: 3px; margin-bottom: 6px; }
+        .compact-ui .skill-name { font-size: 0.75rem; }
+        .compact-ui .skill-desc { font-size: 0.65rem; }
+        .compact-ui .star-display { font-size: 0.7rem; }
+        .reduce-motion * { transition: none !important; animation: none !important; }
+
+        .settings-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; cursor: pointer; font-weight: bold; font-size: 0.95rem; color: var(--text);}
+        .settings-row input { accent-color: var(--theme-left); transform: scale(1.2); cursor: pointer;}
+        .settings-section-title { font-size: 0.9rem; text-transform: uppercase; color: var(--subtext); margin-bottom: 10px; margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;}
+
+        .landing-menu { position: fixed; inset: 0; z-index: 5000; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: var(--bg); background-image: radial-gradient(var(--dot-color) 1px, transparent 1px); background-size: 20px 20px; transition: opacity 0.4s ease, visibility 0.4s, background-color 0.3s; }
+        .landing-menu.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .app-title-main { font-size: 3.5rem; font-weight: 900; color: var(--text); margin: 0 0 10px 0; letter-spacing: -1px; text-align: center; transition: color 0.3s;}
+        .app-tagline { font-size: 1.1rem; color: var(--subtext); margin: 0 0 40px 0; font-style: italic; text-align: center; transition: color 0.3s;}
+        
+        .menu-card { background: var(--modal-bg); backdrop-filter: blur(10px); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 20px; width: 90%; max-width: 320px; transition: background 0.3s, border-color 0.3s; }
+        .menu-select { background: var(--card-bg); color: var(--text); font-size: 1.1rem; padding: 12px 15px; border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; outline: none; font-weight: bold; width: 100%; transition: background 0.3s, color 0.3s, border-color 0.3s; }
+        .btn-start { background: var(--text); color: var(--bg); border: none; padding: 15px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: transform 0.1s, background 0.3s, color 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-start:active { transform: scale(0.98); opacity: 0.8; }
+        .btn-faq { background: transparent; color: var(--subtext); border: none; padding: 10px; font-size: 0.9rem; cursor: pointer; text-decoration: underline; margin-top: 10px; transition: color 0.2s; }
+        .btn-faq:hover { color: var(--text); }
+        .btn-home-settings { position: absolute; top: max(20px, env(safe-area-inset-top)); right: max(20px, env(safe-area-inset-right)); font-size: 1.5rem; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 50%; width: 50px; height: 50px; cursor: pointer; transition: 0.3s; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 100;}
+
+        .app-container { display: flex; flex-direction: column; width: 100%; height: 100%; opacity: 0; visibility: hidden; transition: opacity 0.4s ease 0.2s; }
+        .app-container.visible { opacity: 1; visibility: visible; }
+
+        .app-header { background: var(--header-bg); backdrop-filter: blur(12px); padding: max(15px, env(safe-area-inset-top)) 20px 15px; z-index: 100; border-bottom: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s; }
+        .header-select { background: transparent; border: none; font-size: 1.2rem; font-weight: 800; text-transform: uppercase; color: var(--text); letter-spacing: 1px; cursor: pointer; outline: none; text-align: center; transition: color 0.3s; max-width: 60vw; text-overflow: ellipsis; }
+        .header-select:hover { color: var(--theme-left); }
+        .btn-back { background: var(--card-bg); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; font-weight: bold; color: var(--text); cursor: pointer; transition: background 0.3s, color 0.3s, border-color 0.3s;}
+        .btn-back:active { transform: scale(0.95); }
+
+        .tree-viewport { flex: 1; width: 100%; position: relative; overflow: hidden; cursor: grab; }
+        .tree-viewport:active { cursor: grabbing; }
+
+        .forest { display: flex; gap: 80px; align-items: flex-end; justify-content: flex-start; position: absolute; bottom: 50px; left: 50vw; width: max-content; transform-origin: bottom left; }
+
+        #treeCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+
+        .parallel-row { display: flex; gap: 60px; align-items: flex-end; position: relative; width: max-content; }
+        .parallel-col { position: relative; display: flex; flex-direction: column-reverse; align-items: center; z-index: 1; transition: z-index 0s; width: max-content; }
+        .parallel-col.active-pillar { z-index: 50; }
+
+        .root-node-wrapper { position: relative; z-index: 20; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+        .inactive-pillar .root-node-wrapper { opacity: 0.5; transform: scale(0.9); cursor: pointer; filter: grayscale(100%); }
+        .inactive-pillar .root-node-wrapper:hover { opacity: 0.8; transform: scale(0.95); }
+        .active-pillar .root-node-wrapper { opacity: 1; transform: scale(1); filter: grayscale(0%); }
+
+        .upper-branches { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column-reverse; align-items: center; padding-bottom: 60px; z-index: 10; opacity: 0; visibility: hidden; pointer-events: none; margin-bottom: -60px; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+        .active-pillar .upper-branches { opacity: 1; visibility: visible; pointer-events: auto; margin-bottom: 0; }
+
+        .branch-row { display: flex; gap: 40px; position: relative; margin-bottom: 50px; justify-content: center; }
+        .branch-col { position: relative; display: flex; flex-direction: column-reverse; align-items: center; gap: 40px; }
+        .foundation-row { display: flex; gap: 40px; position: relative; justify-content: center; }
+        .stacked-node { margin-bottom: 50px; }
+
+        .node-card { background: var(--card-bg); width: 240px; padding: 15px; border-radius: 12px; border: 2px solid var(--border-color); position: relative; z-index: 2; transition: transform 0.2s ease, opacity 0.5s ease, filter 0.5s ease, background 0.3s, border-color 0.3s; cursor: default; flex-shrink: 0; margin: 0; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .node-card:active { transform: scale(0.98); }
+        .boss-card, .gateway-card { border-width: 3px !important; }
+        
+        .lock-badge { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: var(--card-bg); color: var(--text); padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; border: 2px solid var(--border-color); box-shadow: 0 4px 10px rgba(0,0,0,0.1); z-index: 10; white-space: nowrap; transition: background 0.3s, color 0.3s, border-color 0.3s; display: flex; align-items: center; gap: 4px; }
+        [data-theme="dark"] .lock-badge { box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+
+        .theme-easy { border-color: #00e676; }
+        .theme-easy .title { color: #00e676; }
+        .theme-med { border-color: #ffb300; }
+        .theme-med .title { color: #ffb300; }
+        .theme-hard { border-color: #ff5252; }
+        .theme-hard .title { color: #ff5252; }
+        .title { font-weight: bold; text-transform: uppercase; font-size: 0.9rem; margin-bottom: 15px; text-align: center; }
+
+        .dist-playable { opacity: 1; pointer-events: auto; }
+        .dist-locked-1 { opacity: 0.6; filter: blur(2px) grayscale(100%); pointer-events: none; user-select: none; }
+        .dist-locked-2 { opacity: 0.15; filter: blur(4px) grayscale(100%); pointer-events: none; user-select: none; }
+        .dist-locked-3 { opacity: 0; pointer-events: none; visibility: hidden; }
+
+        .unlocked-boss.theme-easy { animation: pulse-easy 2s infinite; }
+        .unlocked-boss.theme-med { animation: pulse-med 2s infinite; }
+        .unlocked-boss.theme-hard { animation: pulse-hard 2s infinite; }
+        @keyframes pulse-easy { 0%, 100% { box-shadow: 0 4px 0 #00b25c, 0 0 5px rgba(0,230,118,0.2); } 50% { box-shadow: 0 4px 0 #00b25c, 0 0 25px rgba(0,230,118,0.6); } }
+        @keyframes pulse-med { 0%, 100% { box-shadow: 0 4px 0 #e6a100, 0 0 5px rgba(255,179,0,0.2); } 50% { box-shadow: 0 4px 0 #e6a100, 0 0 25px rgba(255,179,0,0.6); } }
+        @keyframes pulse-hard { 0%, 100% { box-shadow: 0 4px 0 #e04444, 0 0 5px rgba(255,82,82,0.2); } 50% { box-shadow: 0 4px 0 #e04444, 0 0 25px rgba(255,82,82,0.6); } }
+
+        .skill-group { margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; transition: background 0.2s, border-color 0.3s; cursor: pointer; border-radius: 6px; padding: 5px; }
+        .skill-group:hover { background: var(--dot-color); }
+        .skill-group:last-child { border-bottom: none; }
+        .skill-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .skill-name-wrapper { display: flex; align-items: center; gap: 8px; }
+        .skill-name { font-weight: bold; color: var(--text); font-size: 0.85rem; transition: color 0.3s;}
+        .star-display { font-size: 0.8rem; letter-spacing: 2px; }
+        .star-filled { color: var(--star-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.4); }
+        .star-empty { color: var(--subtext); opacity: 0.35; }
+        .skill-desc { font-size: 0.7rem; color: var(--subtext); line-height: 1.3; font-style: italic; display: block; padding-left: 2px; transition: color 0.3s; margin-top: 2px;}
+
+        .floating-controls { position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); left: max(20px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+        .btn-ui { background: var(--btn-bg); color: var(--text); border: 2px solid var(--border-color); border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1.5rem; backdrop-filter: blur(5px); font-weight: bold; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .btn-ui:active { transform: scale(0.9); color: var(--text); border-color: var(--theme-left); }
+
+        .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: var(--btn-bg); color: var(--subtext); border: 2px solid var(--border-color); width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 1.5rem; font-weight: bold; cursor: pointer; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.1); backdrop-filter: blur(5px); transition: all 0.3s; }
+        .nav-arrow:active { transform: translateY(-50%) scale(0.9); color: var(--text); border-color: var(--theme-left);}
+        .nav-arrow.left { left: max(20px, env(safe-area-inset-left)); }
+        .nav-arrow.right { right: max(20px, env(safe-area-inset-right)); }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 6000; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .modal-content { background: var(--card-bg); border-top: 4px solid var(--theme-left); border-radius: 20px; padding: 20px; width: 340px; max-height: 90vh; overflow-y: auto; color: var(--text); box-shadow: 0 -10px 30px rgba(0,0,0,0.2); position: relative; animation: slideUp 0.3s ease-out; transition: background 0.3s, color 0.3s; text-align: left; display: flex; flex-direction: column; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .modal-title { font-size: 1.4rem; margin: 0 0 5px 0; text-transform: uppercase; color: var(--theme-left);}
+        .modal-subtitle { font-size: 0.9rem; color: var(--subtext); margin: 0 0 15px 0; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: var(--subtext); z-index: 10;}
+
+        .carousel-viewport { width: 100%; overflow: hidden; touch-action: pan-y; margin-bottom: 10px;}
+        .carousel-track { display: flex; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); width: 100%; align-items: stretch;}
+        .slide { min-width: 100%; padding: 5px 10px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .slide-image-wrapper { width: 100%; height: 160px; border-radius: 12px; overflow: hidden; margin-bottom: 15px; background: radial-gradient(circle at center, var(--svg-bg-center) 0%, var(--svg-bg-edge) 100%); box-shadow: inset 0 2px 10px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.08); border: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; }
+        .slide-svg { width: 100%; height: 100%; }
+        .step-label { font-size: 0.75rem; font-weight: bold; color: var(--theme-left); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .slide-title { margin: 0 0 10px 0; font-size: 1.2rem; }
+        .slide-text { margin: 0; font-size: 0.9rem; color: var(--subtext); line-height: 1.4; }
+        .controls { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;}
+        .nav-btn-c { background: var(--bg); border: 2px solid var(--border-color); color: var(--text); width: 35px; height: 35px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .nav-btn-c:active { transform: scale(0.9); border-color: var(--theme-left); }
+        .nav-btn-c:disabled { opacity: 0.3; cursor: not-allowed; transform: none; border-color: var(--border-color); }
+        .pagination { display: flex; gap: 8px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-inactive); cursor: pointer; transition: 0.3s; }
+        .dot.active { background: var(--theme-left); transform: scale(1.3); }
+
+        .pulse-line { stroke: var(--theme-left); stroke-width: 2.5; stroke-dasharray: 6; animation: glowPulse 2s infinite ease-in-out; stroke-linecap: round; }
+        .pulse-solid { fill: var(--theme-left); animation: solidPulse 2s infinite ease-in-out; }
+        @keyframes glowPulse { 0%, 100% { opacity: 0.3; filter: none; } 50% { opacity: 1; filter: drop-shadow(0 0 4px var(--theme-left)); } }
+        @keyframes solidPulse { 0%, 100% { filter: none; } 50% { filter: drop-shadow(0 0 6px var(--theme-left)); } }
+
+        .star-rating { display: flex; flex-direction: row-reverse; justify-content: center; gap: 8px; }
+        .star-rating input { display: none; }
+        .star-rating label { font-size: 2.5rem; color: var(--subtext); opacity: 0.3; cursor: pointer; transition: 0.2s ease; }
+        .star-rating label:hover, .star-rating label:hover ~ label, .star-rating input:checked ~ label { color: var(--star-gold); opacity: 1; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); transform: scale(1.1); }
+        .clear-rating-btn { display: block; text-align: center; margin-top: 8px; color: var(--subtext); font-size: 0.75rem; text-decoration: underline; cursor: pointer; transition: color 0.2s; }
+        .clear-rating-btn:hover { color: var(--theme-hard); }
+
+        .notes-drawer { border: 1px solid var(--border-color); border-radius: 8px; margin-top: 5px; overflow: hidden; }
+        .drawer-header { background: var(--dot-color); padding: 12px 15px; font-weight: bold; font-size: 0.9rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: var(--text); user-select: none; transition: background 0.3s;}
+        .drawer-header:active { background: var(--border-color); }
+        .drawer-content { display: none; padding: 15px; background: var(--bg); border-top: 1px solid var(--border-color); flex-direction: column; }
+        .drawer-content.open { display: flex; }
+        .drawer-icon { transition: transform 0.3s; font-size: 0.8rem;}
+
+        @media (max-width: 768px) {
+            .app-title-main { font-size: 2.8rem; }
+            .forest { gap: 50px; }
+            .modal-content { width: 95%; max-width: 400px; padding: 20px; }
+            .nav-arrow.left { left: 10px; }
+            .nav-arrow.right { right: 10px; }
+            .node-card { width: 220px; padding: 12px; }
+            .title { font-size: 0.8rem; margin-bottom: 10px; }
+            .skill-name { font-size: 0.8rem; }
+            .skill-desc { font-size: 0.65rem; }
+            .branch-row { gap: 20px; }
+            .branch-col { gap: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-bg" id="ambientLayer">
+        <svg class="particle" style="top:90%; left:-10%; width:20px; fill: var(--theme-left);" viewBox="0 0 24 24"><path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8,20C19,20 22,3 22,3C21,5 14,5.25 9,6.25C4,7.25 2,11.5 2,13.5C2,15.5 3.75,17.25 3.75,17.25C7,8 17,8 17,8Z"/></svg>
+        <svg class="particle" style="top:100%; left:20%; width:15px; animation-delay: -5s; fill: var(--theme-left);" viewBox="0 0 24 24"><path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8,20C19,20 22,3 22,3C21,5 14,5.25 9,6.25C4,7.25 2,11.5 2,13.5C2,15.5 3.75,17.25 3.75,17.25C7,8 17,8 17,8Z"/></svg>
+        <svg class="particle" style="top:80%; left:50%; width:25px; animation-delay: -12s; fill: var(--theme-left);" viewBox="0 0 24 24"><path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8,20C19,20 22,3 22,3C21,5 14,5.25 9,6.25C4,7.25 2,11.5 2,13.5C2,15.5 3.75,17.25 3.75,17.25C7,8 17,8 17,8Z"/></svg>
+    </div>
+
+    <div id="landingMenu" class="landing-menu">
+        <button class="btn-home-settings" onclick="document.getElementById('settingsModal').style.display='flex'" title="Settings">⚙️</button>
+        <h1 class="app-title-main">🌿 Branch Out</h1>
+        <p class="app-tagline">Choose your path to mastery.</p>
+        
+        <div class="menu-card">
+            <select id="mainMenuSelect" class="menu-select">
+                <option value="kitchen">🔪 Kitchen RPG</option>
+                <option value="crochet">🧶 Yarn Mastery</option>
+                <option value="cocktails">🍸 Mixology</option>
+                <option value="mechanics">🔧 Auto Repair</option>
+                <option value="running">🏃 Couch to 5K</option>
+                <option value="photography">📷 Photography</option>
+                <option value="calligraphy">🖋️ Calligraphy</option>
+            </select>
+            <button class="btn-start" onclick="startJourney()">Begin Journey</button>
+        </div>
+        <button class="btn-faq" onclick="document.getElementById('faqModal').style.display='flex'">What is Branch Out?</button>
+    </div>
+
+    <div id="appContainer" class="app-container">
+        <div class="app-header">
+            <button class="btn-back" onclick="returnToMenu()">⬅ Menu</button>
+            <select id="appMenuSelect" class="header-select" onchange="switchProjectFromApp()">
+                <option value="kitchen">🔪 Kitchen RPG</option>
+                <option value="crochet">🧶 Yarn Mastery</option>
+                <option value="cocktails">🍸 Mixology</option>
+                <option value="mechanics">🔧 Auto Repair</option>
+                <option value="running">🏃 Couch to 5K</option>
+                <option value="photography">📷 Photography</option>
+                <option value="calligraphy">🖋️ Calligraphy</option>
+            </select>
+            <div style="width: 70px;"></div> 
+        </div>
+
+        <div class="tree-viewport" id="viewport">
+            <div id="navLeft" class="nav-arrow left" onclick="slideCarouselPillar(-1)" style="display:none;">❮</div>
+            <div id="navRight" class="nav-arrow right" onclick="slideCarouselPillar(1)" style="display:none;">❯</div>
+            <div class="forest" id="forest-container">
+                <svg id="treeCanvas"></svg>
+            </div>
+        </div>
+
+        <div class="floating-controls">
+            <button class="btn-ui" onclick="changeZoom(0.15)" title="Zoom In">+</button>
+            <button class="btn-ui" onclick="changeZoom(-0.15)" title="Zoom Out">−</button>
+            <button class="btn-ui" onclick="centerCamera()" title="Recenter View" style="font-size: 1.1rem;">🎯</button>
+            <button class="btn-ui" onclick="document.getElementById('settingsModal').style.display='flex'" title="Settings" style="font-size: 1.1rem;">⚙️</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal" onclick="closeModal('settingsModal', event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeModal('settingsModal')">&times;</span>
+            <h2 class="modal-title" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; font-size: 1.2rem; color: var(--text);">Settings</h2>
+            <div class="settings-section-title">💾 Data & Storage</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="exportData()" style="flex: 1; padding: 10px; background: var(--bg); border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text); font-weight: bold;">Export</button>
+                <button onclick="document.getElementById('importFile').click()" style="flex: 1; padding: 10px; background: var(--bg); border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text); font-weight: bold;">Import</button>
+                <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importData(event)">
+            </div>
+            <button onclick="wipeData()" style="width: 100%; padding: 10px; background: #ff5252; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Wipe All Data</button>
+            <div class="settings-section-title">🎨 Appearance</div>
+            <label class="settings-row"><span>Dark Mode</span><input type="checkbox" id="setting-theme" onchange="toggleSetting('theme')"></label>
+            <label class="settings-row"><span>Compact UI</span><input type="checkbox" id="setting-compact" onchange="toggleSetting('compact')"></label>
+            <label class="settings-row"><span>Reduce Motion</span><input type="checkbox" id="setting-motion" onchange="toggleSetting('motion')"></label>
+            <div class="settings-section-title">⚙️ Gameplay</div>
+            <label class="settings-row"><span title="Hides the Field Notes guide icon">Hardcore Mode</span><input type="checkbox" id="setting-hardcore" onchange="toggleSetting('hardcore')"></label>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="faqModal" onclick="closeModal('faqModal', event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeModal('faqModal')">&times;</span>
+            <h2 class="modal-title" style="color: var(--text);">Welcome to Branch Out</h2>
+            <div class="modal-body" style="text-align: left; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                <strong>What is this?</strong><br>Branch Out is a real-life skill tree.<br><br>
+                <strong>How to Play:</strong>
+                <ol>
+                    <li><strong>Learn:</strong> Click any skill row to open the quick tutorial.</li>
+                    <li><strong>Practice:</strong> Complete the physical task in the real world.</li>
+                    <li><strong>Rate:</strong> Give your execution a 1 to 5 star rating.</li>
+                    <li><strong>Level Up:</strong> Earn enough total stars on a tier to unlock the next level!</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="guideModal" onclick="closeModal('guideModal', event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeModal('guideModal')">&times;</span>
+            <h2 class="modal-title" id="modalNodeTitle">Node Title</h2>
+            <p class="modal-subtitle" id="modalSkillName">Skill Name</p>
+            <div id="modalBody" style="display: flex; flex-direction: column; flex: 1;"></div>
+        </div>
+    </div>
+
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+        <defs>
+            <radialGradient id="onionSkin" cx="35%" cy="35%" r="65%">
+                <stop offset="0%" stop-color="#ffcc80" />
+                <stop offset="80%" stop-color="#f57c00" />
+                <stop offset="100%" stop-color="#e65100" />
+            </radialGradient>
+            <linearGradient id="onionFlesh" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="100%" stop-color="#fff3e0" />
+            </linearGradient>
+            <linearGradient id="metalBlade" x1="0%" y1="0%" x2="100%" y2="10%">
+                <stop offset="0%" stop-color="#cfd8dc"/>
+                <stop offset="40%" stop-color="#ffffff"/>
+                <stop offset="100%" stop-color="#90a4ae"/>
+            </linearGradient>
+            <linearGradient id="woodBoard" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#d7ccc8"/>
+                <stop offset="100%" stop-color="#a1887f"/>
+            </linearGradient>
+            <linearGradient id="knifeHandle" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#4e342e"/>
+                <stop offset="100%" stop-color="#3e2723"/>
+            </linearGradient>
+            <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#4facfe"/>
+                <stop offset="100%" stop-color="#81d4fa"/>
+            </linearGradient>
+            
+            <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="6" stdDeviation="4" flood-color="#000000" flood-opacity="0.15"/>
+            </filter>
+            <filter id="lightShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#000000" flood-opacity="0.1"/>
+            </filter>
+
+            <g id="master-knife" filter="url(#dropShadow)">
+                <path d="M 98 5 L 102 5 L 102 65 C 102 85 100 95 100 95 C 100 95 98 85 98 65 Z" fill="url(#metalBlade)"/>
+                <rect x="95" y="-15" width="10" height="25" fill="url(#knifeHandle)" rx="2"/>
+                <circle cx="100" cy="-10" r="1.5" fill="#cfd8dc"/>
+                <circle cx="100" cy="-2" r="1.5" fill="#cfd8dc"/>
+                <circle cx="100" cy="6" r="1.5" fill="#cfd8dc"/>
+            </g>
+            <g id="cutting-board">
+                <rect x="10" y="85" width="180" height="30" rx="4" fill="url(#woodBoard)" filter="url(#lightShadow)"/>
+                <ellipse cx="100" cy="85" rx="35" ry="5" fill="rgba(0,0,0,0.15)"/>
+            </g>
+            <g id="scene1-bg">
+                <use href="#cutting-board"></use>
+                <circle cx="100" cy="58" r="28" fill="url(#onionSkin)" filter="url(#dropShadow)"/>
+                <path d="M 90 85 L 110 85 M 95 85 L 93 92 M 100 85 L 98 94 M 105 85 L 107 92" stroke="#5d4037" stroke-width="1.5" stroke-linecap="round"/>
+            </g>
+            <g id="scene2-bg">
+                <use href="#cutting-board"></use>
+                <path d="M 60 85 C 60 30 130 30 140 85 Z" fill="url(#onionFlesh)" stroke="#e65100" stroke-width="2.5" filter="url(#dropShadow)"/>
+                <path d="M 70 85 C 70 45 120 45 130 85 M 80 85 C 80 55 110 55 120 85 M 90 85 C 90 65 100 65 110 85" stroke="#ffe0b2" stroke-width="2" fill="none"/>
+            </g>
+            <g id="scene3-bg">
+                <use href="#scene2-bg"></use>
+                <line x1="138" y1="70" x2="70" y2="70" stroke="#cfd8dc" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="132" y1="55" x2="80" y2="55" stroke="#cfd8dc" stroke-width="1.5" stroke-linecap="round"/>
+            </g>
+            <g id="scene4-bg">
+                <use href="#cutting-board"></use>
+                <path d="M 50 85 C 50 40 75 40 80 85 Z" fill="url(#onionSkin)" filter="url(#lightShadow)"/>
+                <path d="M 55 85 L 75 85" stroke="#5d4037" stroke-width="2" stroke-linecap="round"/>
+            </g>
+            <g id="scatter-cubes" filter="url(#lightShadow)">
+                <rect x="95" y="75" width="14" height="14" fill="url(#onionFlesh)" rx="2" transform="rotate(10 102 82)"/>
+                <rect x="115" y="65" width="12" height="12" fill="url(#onionSkin)" rx="2" transform="rotate(-15 121 71)"/>
+                <rect x="135" y="78" width="15" height="15" fill="url(#onionFlesh)" rx="3" transform="rotate(45 142 85)"/>
+                <rect x="105" y="55" width="13" height="13" fill="url(#onionFlesh)" rx="2" transform="rotate(22 111 61)"/>
+                <rect x="150" y="68" width="12" height="12" fill="url(#onionFlesh)" rx="2" transform="rotate(-5 156 74)"/>
+                <rect x="125" y="52" width="11" height="11" fill="url(#onionSkin)" rx="2" transform="rotate(-30 130 57)"/>
+                <rect x="85" y="60" width="14" height="14" fill="url(#onionFlesh)" rx="2" transform="rotate(60 92 67)"/>
+            </g>
+            <g id="mep-board-empty">
+                <rect x="40" y="30" width="120" height="50" fill="rgba(255,255,255,0.2)" rx="2" stroke="var(--theme-left)" stroke-width="1" stroke-dasharray="4"/>
+            </g>
+            <g id="mep-bowls-messy">
+                <circle cx="50" cy="40" r="12" fill="#ef5350" filter="url(#lightShadow)"/> <circle cx="150" cy="55" r="10" fill="#ffee58" filter="url(#lightShadow)"/> <circle cx="80" cy="25" r="14" fill="#66bb6a" filter="url(#lightShadow)"/> <circle cx="120" cy="45" r="12" fill="#ffa726" filter="url(#lightShadow)"/> </g>
+            <g id="mep-bowls-ordered">
+                <circle cx="35" cy="40" r="12" fill="#ef5350" filter="url(#lightShadow)"/>
+                <circle cx="75" cy="40" r="12" fill="#ffa726" filter="url(#lightShadow)"/>
+                <circle cx="115" cy="40" r="12" fill="#66bb6a" filter="url(#lightShadow)"/>
+                <circle cx="155" cy="40" r="12" fill="#ffee58" filter="url(#lightShadow)"/>
+            </g>
+
+            <g id="photo-scene-bg">
+                <rect x="10" y="20" width="180" height="80" rx="4" fill="url(#skyGrad)"/>
+                <path d="M 10 100 L 60 50 L 120 100 Z" fill="#81c784"/>
+                <path d="M 70 100 L 130 40 L 190 100 Z" fill="#aed581"/>
+                <circle cx="150" cy="40" r="12" fill="#fff176" filter="url(#dropShadow)"/>
+                <rect x="10" y="20" width="180" height="80" rx="4" fill="none" stroke="#2c3e50" stroke-width="4"/>
+            </g>
+            <g id="thirds-grid">
+                <line x1="66" y1="20" x2="66" y2="100" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-dasharray="4"/>
+                <line x1="133" y1="20" x2="133" y2="100" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-dasharray="4"/>
+                <line x1="10" y1="46" x2="190" y2="46" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-dasharray="4"/>
+                <line x1="10" y1="73" x2="190" y2="73" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-dasharray="4"/>
+            </g>
+            <g id="intersection-dots">
+                <circle cx="66" cy="46" r="5" fill="var(--theme-left)" filter="url(#dropShadow)"/>
+                <circle cx="133" cy="46" r="5" fill="var(--theme-left)" filter="url(#dropShadow)"/>
+                <circle cx="66" cy="73" r="5" fill="var(--theme-left)" filter="url(#dropShadow)"/>
+                <circle cx="133" cy="73" r="5" fill="var(--theme-left)" filter="url(#dropShadow)"/>
+            </g>
+            <g id="placed-subject" filter="url(#dropShadow)">
+                <path d="M 133 73 L 126 60 C 126 55 140 55 140 60 Z" fill="#e53935"/>
+                <circle cx="133" cy="50" r="5" fill="#e53935"/>
+            </g>
+
+            <g id="crochet-hand-bg">
+                <rect x="75" y="20" width="18" height="70" rx="9" fill="#ffccbc" stroke="#d84315" stroke-width="1.5"/>
+                <rect x="105" y="25" width="18" height="65" rx="9" fill="#ffccbc" stroke="#d84315" stroke-width="1.5"/>
+                <path d="M 50 90 L 84 40 L 114 40 L 150 90" stroke="#7986cb" stroke-width="5" fill="none" stroke-linecap="round"/>
+                <path d="M 60 50 L 130 80" stroke="#5c6bc0" stroke-width="6" fill="none" stroke-linecap="round" filter="url(#dropShadow)"/>
+                <path d="M 130 50 L 60 80" stroke="#3f51b5" stroke-width="6" fill="none" stroke-linecap="round" filter="url(#dropShadow)"/>
+            </g>
+            <g id="master-hook" filter="url(#dropShadow)">
+                <rect x="80" y="55" width="60" height="8" rx="4" fill="#4db6ac"/>
+                <path d="M 80 56 L 40 56 C 35 56 35 60 40 60 L 80 60 Z" fill="#cfd8dc"/>
+                <path d="M 40 56 C 35 56 35 63 42 63 L 42 60 C 38 60 38 56 40 56 Z" fill="#90a4ae"/>
+            </g>
+            <g id="magic-ring-loop" filter="url(#dropShadow)">
+                <circle cx="100" cy="60" r="20" stroke="#3f51b5" stroke-width="6" fill="none"/>
+                <path d="M 115 50 L 140 30" stroke="#5c6bc0" stroke-width="5" fill="none" stroke-linecap="round"/>
+                <path d="M 120 60 L 140 80" stroke="#3f51b5" stroke-width="6" fill="none" stroke-linecap="round"/>
+            </g>
+            
+            <g id="bar-bg">
+                <rect x="10" y="80" width="180" height="40" rx="2" fill="#3e2723" filter="url(#dropShadow)"/>
+                <rect x="10" y="80" width="180" height="5" fill="#4e342e"/>
+            </g>
+            <g id="shaker-base">
+                <path d="M 80 80 L 85 30 L 115 30 L 120 80 Z" fill="#cfd8dc" filter="url(#dropShadow)"/>
+                <ellipse cx="100" cy="30" rx="15" ry="4" fill="#90a4ae"/>
+            </g>
+            <g id="ice-cubes">
+                <rect x="90" y="50" width="12" height="12" fill="#e1f5fe" rx="1" transform="rotate(15 96 56)"/>
+                <rect x="100" y="40" width="10" height="10" fill="#e1f5fe" rx="1" transform="rotate(-20 105 45)"/>
+            </g>
+            <g id="shaker-sealed">
+                <path d="M 80 80 L 85 30 L 115 30 L 120 80 Z" fill="#cfd8dc" filter="url(#dropShadow)"/>
+                <path d="M 86 35 L 90 5 L 110 5 L 114 35 Z" fill="#b0bec5"/>
+            </g>
+            <g id="break-point">
+                <circle cx="115" cy="35" r="6" fill="var(--theme-left)"/>
+            </g>
+
+            <g id="engine-bg">
+                <rect x="20" y="30" width="160" height="90" rx="8" fill="#263238"/>
+                <rect x="40" y="40" width="120" height="20" rx="4" fill="#37474f"/>
+                <circle cx="60" cy="80" r="15" fill="#455a64"/>
+                <circle cx="140" cy="80" r="15" fill="#455a64"/>
+            </g>
+            <g id="dipstick-ring">
+                <circle cx="100" cy="30" r="8" fill="none" stroke="#ffeb3b" stroke-width="4" filter="url(#dropShadow)"/>
+            </g>
+            <g id="dipstick-full">
+                <use href="#dipstick-ring"></use>
+                <rect x="98" y="38" width="4" height="20" fill="#cfd8dc"/>
+            </g>
+            <g id="dipstick-clean">
+                <use href="#dipstick-ring"></use>
+                <rect x="98" y="38" width="4" height="60" fill="#cfd8dc"/>
+            </g>
+            <g id="dipstick-zoom">
+                <rect x="80" y="20" width="40" height="80" fill="#cfd8dc" rx="2" filter="url(#dropShadow)"/>
+                <circle cx="100" cy="85" r="2" fill="#37474f"/>
+                <circle cx="100" cy="35" r="2" fill="#37474f"/>
+                <rect x="85" y="45" width="30" height="40" fill="rgba(62, 39, 35, 0.6)"/> </g>
+            <g id="oil-level">
+                <rect x="85" y="43" width="30" height="4" fill="var(--theme-left)"/>
+            </g>
+
+            <g id="track-bg">
+                <rect x="10" y="20" width="180" height="80" fill="#e57373"/>
+                <line x1="10" y1="40" x2="190" y2="40" stroke="#ffffff" stroke-width="2"/>
+                <line x1="10" y1="80" x2="190" y2="80" stroke="#ffffff" stroke-width="2"/>
+            </g>
+            <g id="runner-lungs">
+                <path d="M 85 40 C 70 40 70 80 95 80 C 100 80 100 40 85 40 Z" fill="#81d4fa" opacity="0.8"/>
+                <path d="M 115 40 C 130 40 130 80 105 80 C 100 80 100 40 115 40 Z" fill="#81d4fa" opacity="0.8"/>
+                <path d="M 100 25 L 100 50" stroke="#cfd8dc" stroke-width="4" stroke-linecap="round"/>
+            </g>
+            <g id="lung-zone">
+                <circle cx="100" cy="60" r="30" fill="none" stroke="var(--theme-left)" stroke-width="3" stroke-dasharray="4"/>
+            </g>
+            <g id="runner-heart">
+                <path d="M 100 70 L 85 55 C 75 45 90 35 100 50 C 110 35 125 45 115 55 Z" fill="#ef5350" filter="url(#dropShadow)"/>
+            </g>
+            <g id="runner-head">
+                <circle cx="100" cy="50" r="20" fill="#ffccbc"/>
+                <path d="M 118 50 L 125 55 L 115 60" fill="#ffccbc"/>
+                <line x1="110" y1="65" x2="120" y2="65" stroke="#d84315" stroke-width="1.5"/>
+            </g>
+            <g id="nose-air">
+                <path d="M 130 55 C 140 50 150 60 160 55" stroke="var(--theme-left)" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </g>
+
+            <g id="paper-bg">
+                <rect x="20" y="10" width="160" height="100" fill="#ffffff" filter="url(#dropShadow)"/>
+                <line x1="20" y1="30" x2="180" y2="30" stroke="#90caf9" stroke-width="1"/>
+                <line x1="20" y1="60" x2="180" y2="60" stroke="#90caf9" stroke-width="1" stroke-dasharray="2"/>
+                <line x1="20" y1="90" x2="180" y2="90" stroke="#90caf9" stroke-width="1"/>
+                <line x1="120" y1="10" x2="90" y2="110" stroke="#ffcdd2" stroke-width="1"/>
+            </g>
+            <g id="nib-hover">
+                <path d="M 105 20 L 115 5 L 125 10 L 110 25 Z" fill="#b0bec5" filter="url(#dropShadow)"/>
+                <path d="M 105 20 L 95 30 L 110 25 Z" fill="#cfd8dc"/>
+                <line x1="100" y1="25" x2="108" y2="15" stroke="#78909c" stroke-width="1"/>
+            </g>
+            <g id="nib-press">
+                <path d="M 105 40 L 115 25 L 125 30 L 110 45 Z" fill="#b0bec5" filter="url(#dropShadow)"/>
+                <path d="M 105 40 L 92 50 L 102 45 Z" fill="#cfd8dc"/>
+                <path d="M 110 45 L 98 52 L 105 48 Z" fill="#cfd8dc"/>
+            </g>
+            <g id="thick-ink">
+                <path d="M 98 25 Q 105 40 95 50" stroke="#2c3e50" stroke-width="6" fill="none" stroke-linecap="round"/>
+            </g>
+        </defs>
+    </svg>
+
+    <script>
+        // Track first boot to prevent mass animations on load
+        let isFirstBoot = !localStorage.getItem('branchOut_init_v3');
+
+        function applySettings() {
+            if (appSettings.theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.querySelector('meta[name="theme-color"]').setAttribute('content', '#111111');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                document.querySelector('meta[name="theme-color"]').setAttribute('content', '#fdf8e4');
+            }
+            if(document.getElementById('setting-theme')) document.getElementById('setting-theme').checked = appSettings.theme === 'dark';
+            document.body.classList.toggle('compact-ui', appSettings.compact);
+            if(document.getElementById('setting-compact')) document.getElementById('setting-compact').checked = appSettings.compact;
+            document.body.classList.toggle('reduce-motion', appSettings.motion);
+            if(document.getElementById('setting-motion')) document.getElementById('setting-motion').checked = appSettings.motion;
+            document.body.classList.toggle('hardcore-mode', appSettings.hardcore);
+            if(document.getElementById('setting-hardcore')) document.getElementById('setting-hardcore').checked = appSettings.hardcore;
+        }
+
+        function toggleSetting(key) {
+            appSettings[key] = key === 'theme' ? (appSettings.theme === 'dark' ? 'light' : 'dark') : !appSettings[key];
+            localStorage.setItem('branchOutSettings_v2', JSON.stringify(appSettings));
+            applySettings();
+        }
+        window.addEventListener('DOMContentLoaded', () => {
+            applySettings();
+            document.querySelector('.app-tagline').innerText = `Current Rank: ${getPlayerIdentity()}`;
+        });
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `branch_out_save_${new Date().getTime()}.json`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        }
+        function importData(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try { state = JSON.parse(e.target.result); save(); alert("Save data imported successfully!"); closeModal('settingsModal'); } 
+                catch (err) { alert("Error: Invalid save file."); }
+            };
+            reader.readAsText(file); event.target.value = ""; 
+        }
+        function wipeData() { 
+            if (confirm("Are you sure? This will wipe all progress.")) { 
+                state = {}; 
+                localStorage.removeItem('branchOut_playerName'); // Forgets your name
+                localStorage.removeItem('branchOut_init_v3'); // Forgets the first-boot
+                save(); 
+                closeModal('settingsModal'); 
+                location.reload(); // Instantly reloads to trigger the prompt!
+            } 
+        }
+
+        // --- FULL DATABASE RESTORED ---
+        const projectLibrary = {
+            kitchen: {
+                colors: { left: '#ff7043', right: null, bg: '#fff3e0', header: 'rgba(255, 243, 224, 0.85)' }, 
+                name: "🔪 Kitchen RPG",
+                flora: { type: 'oak', branchActive: '#8d6e63', branchInactive: 'rgba(141, 110, 99, 0.2)' },
+                leftTree: {
+                    tier1: {
+                        layout: 'parallel',
+                        paths: [
+                            {
+                                theme: 'theme-easy',
+                                nodes: [
+                                    { id: "c_tool", passReq: 7, title: "Equipment", skills: [{ name: "Cast Iron", desc: "Seasoning & Care", instructions: "<strong>How to care for Cast Iron:</strong><ol><li>Wash with water.</li><li>Dry completely on the stove over medium heat.</li><li>Rub the inside with a drop of Canola oil.</li><li>Heat until it just starts to smoke, then turn off.</li></ol>"}, { name: "Sharpening", desc: "Whetstone usage" }] },
+                                    { id: "c_boss0", passReq: 4, title: "BOSS: Station Setup", skills: [{name:"Ready for Service", desc:"Tools sharp, pans seasoned"}], isBoss: true }
+                                ],
+                                branches: [
+                                    { nodes: [{ id: "c_blade", passReq: 7, title: "Blade Mastery", skills: [{name:"Mandoline", desc:"Safe uniform slicing"}, {name:"Honing Steel", desc:"Edge alignment"}] }] },
+                                    { nodes: [{ id: "c_machine", passReq: 7, title: "Machine Mastery", skills: [{name:"Food Processor", desc:"Emulsifying blades"}, {name:"Stand Mixer", desc:"Dough hooks & limits"}] }] }
+                                ]
+                            },
+                            {
+                                theme: 'theme-easy',
+                                nodes: [
+                                    { id: "c_prep", passReq: 7, title: "Prep Cook", 
+                                      skills: [
+                                        { 
+                                            name: "Knife Skills", desc: "Dice onion, mince garlic", 
+                                            slides: [
+                                                { title: "Halve It", text: "Slice off the stem end, but leave the hairy root intact. Rest the flat side on the board and cut it directly in half through the root.", svgBase: "#scene1-bg", svgAction: "#master-knife", transform: "translate(0, -10)", pulseLine: {x1:100, y1:50, x2:100, y2:105} },
+                                                { title: "Horizontal Cuts", text: "Place the onion flat. With your knife parallel to the board, make 2 or 3 horizontal slices toward the root (without cutting through it).", svgBase: "#scene2-bg", svgAction: "#master-knife", transform: "translate(45, 10) rotate(90 100 65)", pulseLine: {x1:145, y1:70, x2:65, y2:70}, pulseLine2: {x1:135, y1:55, x2:75, y2:55} },
+                                                { title: "Vertical Cuts", text: "Make vertical cuts down toward the board. Again, leave the root attached—it acts as a natural anchor to hold the onion together.", svgBase: "#scene3-bg", svgAction: "#master-knife", transform: "translate(15, -15) scale(0.85)", pulseLine: {x1:80, y1:40, x2:80, y2:95}, pulseLine2: {x1:100, y1:35, x2:100, y2:95}, pulseLine3: {x1:120, y1:40, x2:120, y2:95} },
+                                                { title: "The Chop", text: "Finally, cut across the vertical lines you just made. The onion will fall away into perfect, uniform little squares. Discard the root.", svgBase: "#scene4-bg", svgAction: "#master-knife", transform: "translate(-10, -50) rotate(85 100 65)", pulseTarget: "#scatter-cubes" }
+                                            ]
+                                        }, 
+                                        { name: "Mise en Place", desc: "Organize ingredients", slides: [{ title: "Everything in its Place", text: "'Mise en place' is a French phrase that translates literally to 'Everything in its place.' It is the act of prepping all ingredients and tools before you turn on the heat.", svgBase: "#cutting-board", pulseTarget: "#mep-board-empty" }, { title: "Prep & Measure", text: "Professional chefs never chop while they are cooking. Wash, peel, and dice every vegetable, and measure every spice into small 'prep bowls' first.", svgBase: "#cutting-board", svgAction: "#mep-bowls-messy", transform: "translate(0,0)", pulseTarget: "#mep-bowls-messy" }, { title: "The Station Flow", text: "Arrange your prep bowls in the order they enter the pan. Clear your board of waste so you can focus entirely on the timing and temperature of the food.", svgBase: "#cutting-board", svgAction: "#mep-bowls-ordered", transform: "translate(0,0)", pulseLine: {x1:30, y1:40, x2:170, y2:40} }] }
+                                      ] 
+                                    },
+                                    { id: "c_boss1", passReq: 4, title: "BOSS: Perfect Salad", skills: [{name:"Vinaigrette & Cuts", desc:"Uniform veg with basic dressing"}], isBoss: true }
+                                ],
+                                branches: [
+                                    { 
+                                        nodes: [ { id: "c_adv_prep", passReq: 7, title: "Advanced Prep", skills: [{name:"Butchery Basics", desc:"Break down a chicken"}, {name:"Stock Clarification", desc:"Make clear consommé"}] } ],
+                                        branches: [
+                                            { 
+                                                theme: "theme-easy",
+                                                nodes: [
+                                                    { id: "c_adv_prep_easy", passReq: 7, title: "Bulk Prep (Easy)", skills: [{name: "Speed Dicing", desc: "Maintain safety at speed"}, {name: "Yield Optimization", desc: "Minimize waste"}] },
+                                                    { id: "c_batch", passReq: 7, title: "Batch Scaling (Med)", skills: [{name: "Scaling Formulas", desc: "Convert recipes by weight"}, {name: "FIFO Rotation", desc: "First in, first out"}] },
+                                                    { id: "c_yield", passReq: 7, title: "Yield Management (Med)", skills: [{name: "Trim Utilization", desc: "Save scraps for stock"}, {name: "Weight Ratios", desc: "AP vs EP percentage"}] }
+                                                ]
+                                            },
+                                            { 
+                                                theme: "theme-med",
+                                                nodes: [
+                                                    { id: "c_adv_prep_med", passReq: 7, title: "Precision Cuts (Med)", skills: [{name: "Brunoise", desc: "Perfect 3mm cubes"}, {name: "Tourné", desc: "7-sided barrel cuts"}] },
+                                                    { id: "c_chiffonade", passReq: 7, title: "Chiffonade (Med)", skills: [{name: "Ribbon Cuts", desc: "Fine strips"}, {name: "Herb Care", desc: "Avoid bruising leaves"}] },
+                                                    { id: "c_tourne_adv", passReq: 7, title: "Tourné Mastery (Hard)", skills: [{name: "7-Sided Barrel", desc: "Classic French cut"}, {name: "Potato Turning", desc: "Equal sizing"}] },
+                                                    { id: "c_carving", passReq: 7, title: "Garniture (Hard)", skills: [{name: "Radish Roses", desc: "Ice bath blooming"}, {name: "Fluted Mushrooms", desc: "Spiral star cut"}] }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    { 
+                                        nodes: [ { id: "c_cold", passReq: 7, title: "Garde Manger", skills: [{name:"Ceviche", desc:"Cure fish in citrus", slides: [        {             title: "Slice the Fish",             text: "Cut the fish into thin, even strips.",             svgBase: "#cutting-board",             svgAction: "#master-knife",             transform: "translate(0, 0)",             pulseLine: {x1: 100, y1: 50, x2: 100, y2: 100}         },        {             title: "Add Citrus",             text: "Completely submerge the fish in fresh lime juice.",             svgBase: "#cutting-board",             pulseTarget: "#scatter-cubes"         }    ]}, {name:"Terrines", desc:"Layered force-meats"}] } ],
+                                        branches: [
+                                            { 
+                                                theme: "theme-easy",
+                                                nodes: [
+                                                    { id: "c_cold_easy", passReq: 7, title: "Plating (Easy)", skills: [{name: "Composed Salads", desc: "Visual balance"}, {name: "Garnishes", desc: "Micro-greens & oils"}] },
+                                                    { id: "c_sauce_paint", passReq: 7, title: "Sauce Painting (Med)", skills: [{name: "Swooshes", desc: "Spoon drag technique"}, {name: "Purée Dots", desc: "Squeeze bottle precision"}] },
+                                                    { id: "c_architecture", passReq: 7, title: "Verticality (Hard)", skills: [{name: "Tweezer Placement", desc: "Micro-green accuracy"}, {name: "Leaning Elements", desc: "3D height building"}] }
+                                                ]
+                                            },
+                                            { 
+                                                theme: "theme-med",
+                                                nodes: [
+                                                    { id: "c_cold_med", passReq: 7, title: "Curing (Med)", skills: [{name: "Gravlax", desc: "Salt/sugar cure ratio"}, {name: "Cold Smoking", desc: "Maintain < 90°F"}] },
+                                                    { id: "c_brine", passReq: 7, title: "Wet Brining (Med)", skills: [{name: "Equilibrium Brine", desc: "Exact salt percentage"}, {name: "Aromatics", desc: "Toasting spices"}] },
+                                                    { id: "c_dry_cure", passReq: 7, title: "Dry Curing (Hard)", skills: [{name: "Pellicle Formation", desc: "Air drying surface"}, {name: "Humidity Control", desc: "Maintain 60-70% RH"}] }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                theme: 'theme-med',
+                                nodes: [
+                                    { id: "c_line", passReq: 7, title: "Line Cook", skills: [{ name: "Heat Control", desc: "Water drop test"}, { name: "Fat Mgmt", desc: "Butter vs Oil smoke points" }] },
+                                    { id: "c_boss2", passReq: 4, title: "BOSS: The Omelette", skills: [{name:"French Omelette", desc:"Pale yellow cigar roll"}], isBoss: true }
+                                ],
+                                branches: [
+                                    { 
+                                        nodes: [ { id: "c_adv_line", passReq: 7, title: "Advanced Line", skills: [{name:"Pan Sauces", desc:"Deglaze, mount with butter"}, {name:"Sautéing", desc:"The wrist-flick toss"}] } ],
+                                        branches: [
+                                            { nodes: [{ id: "c_saucier", passReq: 7, title: "Saucier (Hard)", theme: "theme-hard", skills: [{name:"Reduction", desc:"Nappe consistency"}, {name:"Monter au Beurre", desc:"Mounting with butter"}] }] },
+                                            { nodes: [{ id: "c_poisson", passReq: 7, title: "Poissonnier (Hard)", theme: "theme-hard", skills: [{name:"Skin Seating", desc:"Crispy fish skin"}, {name:"Basting", desc:"Aroser with butter/thyme"}] }] }
+                                        ]
+                                    },
+                                    { 
+                                        nodes: [ { id: "c_grill", passReq: 7, title: "Grill Station", skills: [{name:"Steak Temps", desc:"Touch test for doneness"}, {name:"Resting Meat", desc:"Carryover cooking"}] } ],
+                                        branches: [
+                                            { nodes: [{ id: "c_grill_temp", passReq: 7, title: "Temp Control (Med)", theme: "theme-med", skills: [{name: "Reverse Sear", desc: "Low oven to high sear"}, {name: "Cross-Hatching", desc: "Perfect grill marks"}] }] },
+                                            { nodes: [{ id: "c_grill_wood", passReq: 7, title: "Wood Fire (Hard)", theme: "theme-hard", skills: [{name: "Ember Mgmt", desc: "Cooking on coals"}, {name: "Smoke Profiles", desc: "Apple vs Hickory"}] }] }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                theme: 'theme-hard',
+                                nodes: [
+                                    { id: "c_pantry", passReq: 7, title: "Pantry Chef", skills: [{ name: "Emulsions", desc: "Mayo & Vinaigrettes"}, { name: "Quick Pickles", desc: "Brine ratios & Balance" }] },
+                                    { id: "c_boss3", passReq: 4, title: "BOSS: Hollandaise", skills: [{name:"Classic Hollandaise", desc:"Temper egg yolks, emulsify butter"}], isBoss: true }
+                                ],
+                                branches: [
+                                    { nodes: [{ id: "c_ferment", passReq: 7, title: "Fermentation", skills: [{name:"Lacto-Ferment", desc:"Sauerkraut & Kimchi"}, {name:"Kombucha", desc:"SCOBY maintenance"}] }] },
+                                    { nodes: [{ id: "c_cure", passReq: 7, title: "Curing & Aging", skills: [{name:"Gravlax", desc:"Salt/sugar cure ratio"}, {name:"Duck Prosciutto", desc:"Dry aging basics"}] }] }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            },
+            
+            crochet: {
+                colors: { left: '#4db6ac', right: '#7986cb', bg: '#e0f2f1', header: 'rgba(224, 242, 241, 0.85)' }, 
+                name: "🧶 Yarn Mastery",
+                flora: { type: 'willow', branchActive: '#4db6ac', branchInactive: 'rgba(77, 182, 172, 0.2)' },
+                leftTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "hk1", title: "Materials", skills: [{name:"Hook Sizes", desc:"mm vs letter codes"}, {name:"Yarn Weights", desc:"Worsted vs DK"}] },
+                            { id: "hk2", title: "Grip & Posture", skills: [{name:"Knife vs Pen Grip", desc:"Find comfort"}, {name:"Tension Control", desc:"Consistent loops"}] }
+                        ],
+                        middle: { id: "hk_mid", title: "Stitch Lab", skills: [{name:"The Chain", desc:"Foundation chains"}, {name:"Single Crochet", desc:"Insert, YO, pull"}, {name:"Double Crochet", desc:"The taller stitch"}] },
+                        boss: { id: "hk_boss", title: "BOSS: Granny Square", skills: [{name:"Classic Square", desc:"3 rounds, corner clusters"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { 
+                                nodes: [ { id: "hk_ami", title: "Amigurumi", theme: "theme-med", 
+                                  skills: [
+                                    { 
+                                        name:"Magic Ring", desc:"Tight start",
+                                        slides: [
+                                            { title: "The Wrap", text: "Wrap the yarn around two fingers, creating an 'X' on the top of your hand.", svgBase: "#crochet-hand-bg", pulseLine: {x1:100, y1:40, x2:120, y2:80} },
+                                            { title: "The Hook", text: "Slide the hook under the first strand and grab the second strand.", svgBase: "#crochet-hand-bg", svgAction: "#master-hook", transform: "translate(20, 10)", pulseLine: {x1:110, y1:50, x2:90, y2:60} },
+                                            { title: "The Pull", text: "Pull the strand through and twist the hook upwards to lock it in place.", svgBase: "#crochet-hand-bg", svgAction: "#master-hook", transform: "translate(20, 10) rotate(45 100 60)", pulseTarget: "#magic-ring-loop" }
+                                        ]
+                                    }, 
+                                    {name:"Invisible Decrease", desc:"No gaps"}
+                                  ] 
+                                } ],
+                                branches: [
+                                    { nodes: [{ id: "ami_adv", title: "Advanced Shaping", theme: "theme-hard", skills: [{name:"Oval Bases", desc:"Starting from a chain"}, {name:"Asymmetry", desc:"Cheeks and snouts"}] }] },
+                                    { nodes: [{ id: "ami_struct", title: "Structural Support", theme: "theme-hard", skills: [{name:"Wire Armatures", desc:"Poseable limbs"}, {name:"Weighted Bases", desc:"Poly-pellets for sitting"}] }] }
+                                ]
+                            },
+                            { 
+                                nodes: [ { id: "hk_tex", title: "Wearables", theme: "theme-med", skills: [{name:"Ribbing", desc:"Back loop only"}, {name:"Measurements", desc:"Checking gauge"}] } ],
+                                branches: [
+                                    { nodes: [{ id: "wear_sweater", title: "Sweater Construct", theme: "theme-hard", skills: [{name:"Top-Down Raglan", desc:"Seamless yoke"}, {name:"Seamed Panels", desc:"Mattress stitch join"}] }] },
+                                    { nodes: [{ id: "wear_socks", title: "Socks & Mittens", theme: "theme-hard", skills: [{name:"Heel Flaps", desc:"Turning the heel"}, {name:"Gussets", desc:"Picking up stitches"}] }] }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                rightTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "pt1", title: "Reading Patterns", skills: [{name:"Abbreviations", desc:"SC, DC, CH, SLST"}, {name:"Diagrams", desc:"Read symbols"}] },
+                            { id: "pt2", title: "Finishing", skills: [{name:"Weaving Ends", desc:"Darning needle"}, {name:"Blocking", desc:"Steam or Wet block"}] }
+                        ],
+                        middle: { id: "pt_mid", title: "Color Work", skills: [{name:"Stripe Changes", desc:"Change on last pull"}, {name:"Carrying Yarn", desc:"Hide strand inside"}] },
+                        boss: { id: "pt_boss", title: "BOSS: Beanie Hat", skills: [{name:"Simple Beanie", desc:"In the round, closing top"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { 
+                                nodes: [ { id: "pt_lace", title: "Lace Work", theme: "theme-hard", skills: [{name:"Pineapple Stitch", desc:"Complex motif"}, {name:"Blocking Lace", desc:"Pinning points"}] } ],
+                                branches: [
+                                    { nodes: [{ id: "lace_join", title: "Joining Methods", theme: "theme-hard", skills: [{name:"Whip Stitch", desc:"Invisible seams"}, {name:"JAYG", desc:"Join-As-You-Go"}] }] },
+                                    { nodes: [{ id: "lace_thread", title: "Thread Crochet", theme: "theme-hard", skills: [{name:"Steel Hooks", desc:"Working with < 2mm"}, {name:"Doilies", desc:"Fine tension"}] }] }
+                                ]
+                            },
+                            { nodes: [{ id: "pt_tun", title: "Tunisian", theme: "theme-hard", skills: [{name:"Simple Stitch", desc:"Forward/Return pass"}, {name:"Honeycomb", desc:"Texture work"}] }] }
+                        ]
+                    }
+                }
+            },
+
+            cocktails: {
+                colors: { left: '#ab47bc', right: '#ffca28', bg: '#f3e5f5', header: 'rgba(243, 229, 245, 0.85)' }, 
+                name: "🍸 Mixology",
+                flora: { type: 'pine', branchActive: '#ab47bc', branchInactive: 'rgba(171, 71, 188, 0.2)' },
+                leftTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "mix_tools", title: "Bar Tools", skills: [{name:"The Shaker", desc:"Cobbler vs Boston"}, {name:"Jiggers", desc:"Accurate measuring"}] },
+                            { id: "mix_glass", title: "Glassware", skills: [{name:"The Coupe", desc:"Up drinks"}, {name:"The Rocks", desc:"Drinks on ice"}] }
+                        ],
+                        middle: { 
+                            id: "mix_shake", title: "Shake & Strain", 
+                            skills: [
+                                {
+                                    name:"The Hard Shake", desc:"Aerating citrus",
+                                    slides: [
+                                        { title: "The Build", text: "Add your ingredients and ice to the small tin. Place the large tin over the top on an angle.", svgBase: "#bar-bg", svgAction: "#shaker-base", transform: "translate(0,0)", pulseTarget: "#ice-cubes" },
+                                        { title: "The Seal", text: "Give the top of the large tin a firm smack with the heel of your hand to create a vacuum seal.", svgBase: "#bar-bg", svgAction: "#shaker-sealed", transform: "translate(0,0)", pulseLine: {x1:80, y1:40, x2:120, y2:40} },
+                                        { title: "The Shake", text: "Hold both tins tightly. Shake vigorously over your shoulder for 10-15 seconds until the tin is frosted.", svgBase: "#bar-bg", svgAction: "#shaker-sealed", transform: "translate(0,-10) rotate(-15 100 60)", pulseLine: {x1:70, y1:20, x2:130, y2:90} },
+                                        { title: "The Break", text: "Tap the side of the large tin where the two metals meet to break the seal, then strain.", svgBase: "#bar-bg", svgAction: "#shaker-sealed", transform: "translate(0,0)", pulseTarget: "#break-point" }
+                                    ]
+                                }, 
+                                {name:"Double Strain", desc:"Catching ice chips"}
+                            ] 
+                        },
+                        boss: { id: "mix_boss1", title: "BOSS: The Margarita", skills: [{name:"Perfect Balance", desc:"Tequila, Lime, Agave/Cointreau"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "mix_syrups", title: "Syrups & Infusions", skills: [{name:"Simple Syrup", desc:"1:1 Sugar to Water"}, {name:"Oleo Saccharum", desc:"Extracting citrus oils"}] }] },
+                            { nodes: [{ id: "mix_foam", title: "Egg White Foams", skills: [{name:"Dry Shake", desc:"Emulsifying without ice"}, {name:"Reverse Dry Shake", desc:"Maximum foam texture"}] }] }
+                        ]
+                    }
+                },
+                rightTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "mix_spirit", title: "Spirits 101", skills: [{name:"Base Liquors", desc:"Gin, Whiskey, Rum"}, {name:"Modifiers", desc:"Liqueurs & Cordials"}] },
+                            { id: "mix_verm", title: "Vermouth & Amaro", skills: [{name:"Storage", desc:"Keep it in the fridge!"}, {name:"Flavor Profiles", desc:"Sweet vs Dry vs Bitter"}] }
+                        ],
+                        middle: { id: "mix_stir", title: "The Proper Stir", skills: [{name:"Bar Spoon Grip", desc:"Push/Pull method"}, {name:"Chilling & Dilution", desc:"Stirring for 30 seconds"}] },
+                        boss: { id: "mix_boss2", title: "BOSS: Old Fashioned", skills: [{name:"Classic Build", desc:"Sugar, Bitters, Bourbon, Ice"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "mix_ice", title: "Clear Ice", skills: [{name:"Directional Freezing", desc:"Using a small cooler"}, {name:"Ice Carving", desc:"Shaping cubes for the glass"}] }] },
+                            { nodes: [{ id: "mix_bitters", title: "Bitters & Tinctures", skills: [{name:"The Dasher", desc:"Adding aromatic depth"}, {name:"DIY Bitters", desc:"Steeping botanicals in high-proof"}] }] }
+                        ]
+                    }
+                }
+            },
+
+            mechanics: {
+                colors: { left: '#5c6bc0', right: '#8d6e63', bg: '#eceff1', header: 'rgba(236, 239, 241, 0.85)' }, 
+                name: "🔧 Auto Repair",
+                flora: { type: 'industrial', branchActive: '#5c6bc0', branchInactive: 'rgba(92, 107, 192, 0.2)' },
+                leftTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "auto_safe", title: "Safety & Lift", skills: [{name:"Jack & Stands", desc:"Never trust a hydraulic jack!"}, {name:"Chocks", desc:"Securing the wheels"}] },
+                            { id: "auto_tools", title: "Hand Tools", skills: [{name:"Socket Sets", desc:"Metric vs Standard"}, {name:"Torque Wrench", desc:"Tightening to spec"}] }
+                        ],
+                        middle: { 
+                            id: "auto_fluids", title: "Fluid Checks", 
+                            skills: [
+                                {
+                                    name:"Engine Oil", desc:"Reading the dipstick",
+                                    slides: [
+                                        { title: "Locate", text: "Find the oil dipstick. It usually has a brightly colored ring handle (often yellow or orange) located near the engine block.", svgBase: "#engine-bg", svgAction: "#dipstick-full", transform: "translate(0,0)", pulseTarget: "#dipstick-ring" },
+                                        { title: "Pull & Wipe", text: "Pull the stick completely out. The oil on it right now is inaccurate from the engine splashing. Wipe it clean with a rag.", svgBase: "#engine-bg", svgAction: "#dipstick-clean", transform: "translate(0,-20)", pulseLine: {x1:100, y1:20, x2:100, y2:80} },
+                                        { title: "Reinsert", text: "Push the clean dipstick all the way back into the tube until it seats fully, then pull it back out.", svgBase: "#engine-bg", svgAction: "#dipstick-full", transform: "translate(0,0)" },
+                                        { title: "Read Level", text: "Look at the tip. The oil film should fall between the two indicator dots (or crosshatched area).", svgBase: "#engine-bg", svgAction: "#dipstick-zoom", transform: "translate(0,0)", pulseTarget: "#oil-level" }
+                                    ]
+                                }, 
+                                {name:"Coolant", desc:"Checking reservoir levels"}
+                            ] 
+                        },
+                        boss: { id: "auto_boss1", title: "BOSS: The Oil Change", skills: [{name:"Drain & Fill", desc:"Replace filter, add fresh oil"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "auto_brakes", title: "Brake Service", skills: [{name:"Pad Replacement", desc:"Compressing the caliper"}, {name:"Rotor Inspection", desc:"Checking for deep grooves"}] }] },
+                            { nodes: [{ id: "auto_tires", title: "Wheels & Tires", skills: [{name:"Tire Rotation", desc:"Front-to-back crossing patterns"}, {name:"Tread Depth", desc:"The penny test"}] }] }
+                        ]
+                    }
+                },
+                rightTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "auto_meter", title: "Multimeter Basics", skills: [{name:"Voltage Check", desc:"Testing 12V systems"}, {name:"Continuity", desc:"Testing broken wires"}] },
+                            { id: "auto_obd", title: "OBD2 Scanner", skills: [{name:"Reading Codes", desc:"Why is the check engine light on?"}, {name:"Clearing Codes", desc:"Resetting the ECU"}] }
+                        ],
+                        middle: { id: "auto_batt", title: "Power Systems", skills: [{name:"Terminal Cleaning", desc:"Removing acid corrosion"}, {name:"Alternator Test", desc:"Checking charge voltage running"}] },
+                        boss: { id: "auto_boss2", title: "BOSS: Dead Battery Jump", skills: [{name:"Safe Jumping", desc:"Red to Red, Black to Ground"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "auto_spark", title: "Ignition System", skills: [{name:"Spark Plugs", desc:"Gapping and anti-seize"}, {name:"Ignition Coils", desc:"Testing for misfires"}] }] },
+                            { nodes: [{ id: "auto_fuses", title: "Fuses & Relays", skills: [{name:"Fuse Box Map", desc:"Finding blown fuses"}, {name:"Parasitic Draw", desc:"Finding battery drains"}] }] }
+                        ]
+                    }
+                }
+            },
+
+            running: {
+                colors: { left: '#26a69a', right: '#ffa726', bg: '#e8f5e9', header: 'rgba(232, 245, 233, 0.85)' }, 
+                name: "🏃 Couch to 5K",
+                flora: { type: 'pine', branchActive: '#26a69a', branchInactive: 'rgba(38, 166, 154, 0.2)' },
+                leftTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "run_shoes", title: "Footwear & Gear", skills: [{name:"Gait Analysis", desc:"Finding the right support"}, {name:"Anti-Chafe", desc:"Lubricating trouble spots"}] },
+                            { id: "run_warmup", title: "Pre-Run Prep", skills: [{name:"Dynamic Stretching", desc:"Leg swings & lunges"}, {name:"Activation", desc:"Waking up the glutes"}] }
+                        ],
+                        middle: { 
+                            id: "run_pace", title: "Pacing & Breathing", 
+                            skills: [
+                                {
+                                    name:"Conversational Pace", desc:"Running slow to run fast",
+                                    slides: [
+                                        { title: "The Talk Test", text: "You should be running at a pace where you could hold a conversation without gasping for air.", svgBase: "#track-bg", svgAction: "#runner-lungs", transform: "translate(0,0)", pulseTarget: "#lung-zone" },
+                                        { title: "Zone 2 HR", text: "This easy effort builds your aerobic base and mitochondria. It feels deceptively slow.", svgBase: "#track-bg", svgAction: "#runner-heart", transform: "translate(0,0)", pulseLine: {x1:60, y1:60, x2:140, y2:60} },
+                                        { title: "Nasal Breathing", text: "Try breathing exclusively through your nose. If you have to open your mouth to pant, you are going too fast.", svgBase: "#track-bg", svgAction: "#runner-head", transform: "translate(0,0)", pulseTarget: "#nose-air" }
+                                    ]
+                                }, 
+                                {name:"Cadence Focus", desc:"Taking quicker steps"}
+                            ] 
+                        },
+                        boss: { id: "run_boss1", title: "BOSS: Non-Stop 1 Mile", skills: [{name:"The First Mile", desc:"Pacing yourself perfectly"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "run_hills", title: "Strength & Power", skills: [{name:"Hill Repeats", desc:"Building leg drive"}, {name:"Strides", desc:"15-second speed bursts"}] }] },
+                            { nodes: [{ id: "run_form", title: "Form Optimization", skills: [{name:"Midfoot Strike", desc:"Avoiding heavy heel striking"}, {name:"Posture", desc:"Running tall, arms relaxed"}] }] }
+                        ]
+                    }
+                },
+                rightTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "run_hydrate", title: "Fuel & Hydration", skills: [{name:"Electrolytes", desc:"Sodium & Potassium"}, {name:"Pre-Run Snack", desc:"Simple carbs 30 mins prior"}] },
+                            { id: "run_cool", title: "Post-Run Recovery", skills: [{name:"Static Stretching", desc:"Holding poses for 30s"}, {name:"Foam Rolling", desc:"Releasing tight calves/IT bands"}] }
+                        ],
+                        middle: { id: "run_intervals", title: "Run/Walk Strategy", skills: [{name:"Galloway Method", desc:"Structured walk breaks"}, {name:"Heart Rate Zones", desc:"Staying in Zone 2"}] },
+                        boss: { id: "run_boss2", title: "BOSS: The 5K Finish", skills: [{name:"3.1 Miles Complete", desc:"Crossing the finish line!"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "run_long", title: "Endurance Building", skills: [{name:"The Long Run", desc:"Adding 10% distance weekly"}, {name:"Time on Feet", desc:"Ignoring pace, focusing on time"}] }] },
+                            { nodes: [{ id: "run_cross", title: "Cross Training", skills: [{name:"Core Strength", desc:"Planks & stability"}, {name:"Cycling/Swimming", desc:"Low-impact cardio"}] }] }
+                        ]
+                    }
+                }
+            },
+
+            photography: {
+                colors: { left: '#42a5f5', right: '#7e57c2', bg: '#e3f2fd', header: 'rgba(227, 242, 253, 0.85)' }, 
+                name: "📷 Photography",
+                flora: { type: 'willow', branchActive: '#42a5f5', branchInactive: 'rgba(66, 165, 245, 0.2)' },
+                leftTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "photo_aperture", title: "Aperture (f-stop)", skills: [{name:"Depth of Field", desc:"Blurring the background"}, {name:"Lens Speed", desc:"Shooting wide open (f/1.8)"}] },
+                            { id: "photo_shutter", title: "Shutter Speed", skills: [{name:"Freezing Action", desc:"Shooting at 1/1000s"}, {name:"Motion Blur", desc:"Capturing waterfalls (1/2s)"}] }
+                        ],
+                        middle: { id: "photo_iso", title: "ISO & Exposure", skills: [{name:"Sensor Sensitivity", desc:"Balancing ISO with noise"}, {name:"The Light Meter", desc:"Reading the in-camera meter"}] },
+                        boss: { id: "photo_boss1", title: "BOSS: Full Manual Mode", skills: [{name:"The Triangle", desc:"Balancing Aperture, Shutter, and ISO"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "photo_night", title: "Low Light Mastery", skills: [{name:"Tripod Usage", desc:"Turning off Image Stabilization"}, {name:"Long Exposures", desc:"Light trails and starscapes"}] }] },
+                            { nodes: [{ id: "photo_action", title: "Action & Sports", skills: [{name:"Continuous Focus (AF-C)", desc:"Tracking moving subjects"}, {name:"Panning", desc:"Moving camera with the subject"}] }] }
+                        ]
+                    }
+                },
+                rightTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "photo_comp", title: "Composition Basics", 
+                              skills: [
+                                { 
+                                    name: "Rule of Thirds", desc: "Placing subjects on intersections",
+                                    slides: [
+                                        { title: "The Grid", text: "Imagine your viewfinder is divided into nine equal segments by two vertical and two horizontal lines.", svgBase: "#photo-scene-bg", svgAction: "#thirds-grid", transform: "translate(0, 0)", pulseLine: {x1:66, y1:20, x2:66, y2:100}, pulseLine2: {x1:133, y1:20, x2:133, y2:100} },
+                                        { title: "The Intersections", text: "The four points where these lines intersect are the most powerful focal points in your image.", svgBase: "#photo-scene-bg", svgAction: "#thirds-grid", transform: "translate(0, 0)", pulseTarget: "#intersection-dots" },
+                                        { title: "Subject Placement", text: "Instead of dead-center, place your primary subject on one of these intersections to create tension and energy.", svgBase: "#photo-scene-bg", svgAction: "#thirds-grid", transform: "translate(0, 0)", pulseTarget: "#placed-subject" }
+                                    ]
+                                },
+                                {name:"Leading Lines", desc:"Drawing the viewer's eye"}
+                              ] 
+                            },
+                            { id: "photo_light", title: "Finding Light", skills: [{name:"Golden Hour", desc:"Soft, warm directional light"}, {name:"Window Light", desc:"Softbox effect indoors"}] }
+                        ],
+                        middle: { id: "photo_focal", title: "Focal Lengths", skills: [{name:"Wide Angle (16-35mm)", desc:"Exaggerating perspective"}, {name:"Portrait (85mm)", desc:"Flattering compression"}] },
+                        boss: { id: "photo_boss2", title: "BOSS: The Perfect Portrait", skills: [{name:"Catchlights & Bokeh", desc:"Eyes in focus, background soft"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "photo_raw", title: "RAW Processing", skills: [{name:"White Balance", desc:"Fixing color temperature"}, {name:"Highlight Recovery", desc:"Saving blown-out skies"}] }] },
+                            { nodes: [{ id: "photo_color", title: "Color Grading", skills: [{name:"Split Toning", desc:"Cool shadows, warm highlights"}, {name:"HSL Sliders", desc:"Targeting specific colors"}] }] }
+                        ]
+                    }
+                }
+            },
+
+            calligraphy: {
+                colors: { left: '#d4e157', right: '#ec407a', bg: '#f9fbe7', header: 'rgba(249, 251, 231, 0.85)' }, 
+                name: "🖋️ Calligraphy",
+                flora: { type: 'oak', branchActive: '#d4e157', branchInactive: 'rgba(212, 225, 87, 0.2)' },
+                leftTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "cal_pen", title: "Pointed Pen Prep", skills: [{name:"Oblique Holders", desc:"Finding the right grip angle"}, {name:"Preparing Nibs", desc:"Burning off factory oils"}] },
+                            { id: "cal_ink", title: "Ink & Paper", skills: [{name:"Ink Consistency", desc:"Adding water or gum arabic"}, {name:"Paper Bleed", desc:"Choosing smooth layouts"}] }
+                        ],
+                        middle: { 
+                            id: "cal_strokes", title: "Fundamental Strokes", 
+                            skills: [
+                                {name:"Upstrokes", desc:"Light pressure, thin hairlines"}, 
+                                {
+                                    name:"Downstrokes", desc:"Heavy pressure, thick swells",
+                                    slides: [
+                                        { title: "The Approach", text: "Start at the ascender line. Keep your hand relaxed and your pen angled directly in line with the paper's slant.", svgBase: "#paper-bg", svgAction: "#nib-hover", transform: "translate(0,0)", pulseLine: {x1:100, y1:20, x2:100, y2:100} },
+                                        { title: "Apply Pressure", text: "As you pull the pen down toward your body, press the nib firmly into the paper so the tines spread apart.", svgBase: "#paper-bg", svgAction: "#nib-press", transform: "translate(0,0)", pulseTarget: "#thick-ink" },
+                                        { title: "The Swell", text: "The spreading tines allow more ink to flow, creating a beautiful, thick 'swell' on the downward stroke.", svgBase: "#paper-bg", svgAction: "#nib-press", transform: "translate(0,20)", pulseTarget: "#thick-ink" }
+                                    ]
+                                }
+                            ] 
+                        },
+                        boss: { id: "cal_boss1", title: "BOSS: The Minuscules", skills: [{name:"Lowercase Alphabet", desc:"Consistent slant and spacing"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "cal_maj", title: "The Majuscules", skills: [{name:"Capital Letters", desc:"Complex entry strokes"}, {name:"Stem Shades", desc:"The core vertical pillar"}] }] },
+                            { nodes: [{ id: "cal_flour", title: "Flourishing", skills: [{name:"Ovals & Spirals", desc:"Building muscle memory"}, {name:"Visual Balance", desc:"Knowing when to stop"}] }] }
+                        ]
+                    }
+                },
+                rightTree: {
+                    tier1: {
+                        layout: 'converge',
+                        roots: [
+                            { id: "cal_brush", title: "Brush Pens", skills: [{name:"Felt vs Synthetic Hair", desc:"Finding your flexibility"}, {name:"Pen Angle", desc:"Holding it at 45 degrees"}] },
+                            { id: "cal_guide", title: "Guidelines", skills: [{name:"Baseline & X-Height", desc:"Keeping letters uniform"}, {name:"Slant Lines", desc:"Maintaining 55-degree tilt"}] }
+                        ],
+                        middle: { id: "cal_connect", title: "Connections", skills: [{name:"Entrance Strokes", desc:"Starting from the baseline"}, {name:"Exit Strokes", desc:"Leading into the next letter"}] },
+                        boss: { id: "cal_boss2", title: "BOSS: The First Word", skills: [{name:"Fluid Script", desc:"Write 'minimum' seamlessly"}], isBoss: true }
+                    },
+                    tier2: {
+                        branches: [
+                            { nodes: [{ id: "cal_bounce", title: "Modern Style", skills: [{name:"Bouncing Baseline", desc:"Breaking the rules rhythmically"}, {name:"Extended Loops", desc:"Exaggerated ascenders/descenders"}] }] },
+                            { nodes: [{ id: "cal_blend", title: "Color & Blending", skills: [{name:"Ombre Effects", desc:"Kissing marker tips together"}, {name:"Water Brushes", desc:"Creating watercolor fades"}] }] }
+                        ]
+                    }
+                }
+            }
+        };
+
+        let state = JSON.parse(localStorage.getItem('branchOut_save_v1')) || {};
+        let currentZoom = window.innerWidth <= 768 ? 0.75 : 1.0;
+        let panX = 0, panY = 0; let activeIndex = 0; let currentProjectKey = 'kitchen';
+        let activeGuideKey = null; let activeGuideNodeTitle = null; let activeGuideSkill = null; 
+        let currentSlideIndex = 0; let totalSlidesCount = 0;
+
+        function save() { localStorage.setItem('branchOut_save_v1', JSON.stringify(state)); render(); }
+        function getEarnedStars(node) { if(!node || !node.skills) return 0; return node.skills.reduce((sum, s) => sum + (state[node.id + "_" + s.name + "_rating"] || 0), 0); }
+        function isNodePassed(node) { if(!node || !node.skills) return true; return getEarnedStars(node) >= (node.passReq || (node.skills.length * 5)); }
+
+        function updateTransform(smooth = false) {
+            const forest = document.getElementById('forest-container');
+            forest.style.transition = smooth ? 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+            forest.style.transform = `translateX(${panX}px) translateY(${panY}px) scale(${currentZoom})`;
+            document.body.style.backgroundPosition = `${panX * 0.2}px ${panY * 0.2}px`;
+        }
+
+        function changeZoom(amount) { currentZoom += amount; if (currentZoom < 0.2) currentZoom = 0.2; if (currentZoom > 2) currentZoom = 2; centerOnPillar(activeIndex, true); }
+        function centerCamera() { panY = 0; currentZoom = window.innerWidth <= 768 ? 0.75 : 1.0; centerOnPillar(activeIndex, true); }
+        function resetCamera() { panY = 0; currentZoom = window.innerWidth <= 768 ? 0.75 : 1.0; activeIndex = 0; render(); setTimeout(() => { centerOnPillar(0, false); }, 50); }
+
+        function centerOnPillar(index, smooth = true) {
+            const pillars = document.querySelectorAll('.parallel-col'); if (!pillars[index]) return;
+            activeIndex = index;
+            pillars.forEach((p, i) => { p.classList.toggle('active-pillar', i === activeIndex); p.classList.toggle('inactive-pillar', i !== activeIndex); });
+            void document.body.offsetHeight;
+            panX = -((pillars[activeIndex].offsetLeft + pillars[activeIndex].offsetWidth / 2) * currentZoom);
+            updateTransform(smooth);
+            document.getElementById('navLeft').style.display = activeIndex === 0 ? 'none' : 'flex';
+            document.getElementById('navRight').style.display = activeIndex === pillars.length - 1 ? 'none' : 'flex';
+            
+            drawTreeCanvas();
+            setTimeout(drawTreeCanvas, 400); 
+        }
+
+        function slideCarouselPillar(direction) {
+            const pillars = document.querySelectorAll('.parallel-col'); let targetIdx = activeIndex + direction;
+            if (targetIdx >= 0 && targetIdx < pillars.length && targetIdx !== activeIndex) centerOnPillar(targetIdx, true);
+        }
+
+        function getPlayerIdentity() {
+            // Just grab the name from memory, or default to Wanderer silently. NO PROMPTS HERE!
+            let playerName = localStorage.getItem('branchOut_playerName') || "Wanderer";
+            
+            // Calculate Total Global Stars
+            let totalStars = 0;
+            for (let key in state) {
+                if (key.endsWith("_rating")) totalStars += state[key];
+            }
+
+            // Assign Title based on XP
+            let title = "Novice";
+            if (totalStars >= 15) title = "Apprentice";
+            if (totalStars >= 40) title = "Artisan";
+            if (totalStars >= 100) title = "Master";
+
+            return `${title} ${playerName}`;
+        }
+        
+        function startJourney() {
+            // 1. Check for name and prompt if it's their first time clicking Start
+            let playerName = localStorage.getItem('branchOut_playerName');
+            if (!playerName) {
+                let userInput = prompt("Welcome to Branch Out! What is your name, traveler?");
+                if (userInput && userInput.trim() !== "") {
+                    localStorage.setItem('branchOut_playerName', userInput.trim());
+                    // Update the main menu text in the background so it's ready when they return
+                    document.querySelector('.app-tagline').innerText = `Current Rank: ${getPlayerIdentity()}`;
+                }
+            }
+
+            // 2. Proceed with launching the skill tree
+            currentProjectKey = document.getElementById('mainMenuSelect').value; 
+            document.getElementById('appMenuSelect').value = currentProjectKey;
+            document.getElementById('landingMenu').classList.add('hidden');
+            const app = document.getElementById('appContainer'); app.style.display = 'flex';
+            setTimeout(() => { app.classList.add('visible'); resetCamera(); }, 50);
+        }
+
+        function switchProjectFromApp() { currentProjectKey = document.getElementById('appMenuSelect').value; document.getElementById('mainMenuSelect').value = currentProjectKey; resetCamera(); }
+        function returnToMenu() { document.getElementById('appContainer').classList.remove('visible'); setTimeout(() => { document.getElementById('appContainer').style.display = 'none'; document.getElementById('landingMenu').classList.remove('hidden'); }, 400); }
+
+        function closeModal(modalId, event) { if (event && event.target.id !== modalId) return; document.getElementById(modalId).style.display = 'none'; }
+        function toggleRubric() { const r = document.getElementById('rubricDetails'); if(r) r.style.display = r.style.display === 'none' ? 'block' : 'none'; }
+
+        // --- UNIFIED GUIDE & RATING ENGINE ---
+        function openGuide(key, nodeTitle, skillObjStr) {
+            activeGuideSkill = JSON.parse(decodeURIComponent(skillObjStr));
+            activeGuideKey = key; activeGuideNodeTitle = nodeTitle;
+            document.getElementById('modalNodeTitle').innerText = nodeTitle;
+            document.getElementById('modalNodeTitle').style.color = projectLibrary[currentProjectKey].colors.left;
+            document.querySelector('#guideModal .modal-content').style.borderTopColor = projectLibrary[currentProjectKey].colors.left;
+            document.getElementById('modalSkillName').innerText = activeGuideSkill.name;
+            buildGuideUI(false); 
+            document.getElementById('guideModal').style.display = 'flex';
+        }
+
+        function buildGuideUI(isEditing) {
+            const container = document.getElementById('modalBody'); container.innerHTML = '';
+            
+            if (activeGuideSkill.slides && activeGuideSkill.slides.length > 0) {
+                totalSlidesCount = activeGuideSkill.slides.length; currentSlideIndex = 0;
+                let trackHtml = ''; let dotsHtml = '';
+                activeGuideSkill.slides.forEach((slide, i) => {
+                    let linesHtml = '';
+                    if(slide.pulseLine) linesHtml += `<line class="pulse-line" x1="${slide.pulseLine.x1}" y1="${slide.pulseLine.y1}" x2="${slide.pulseLine.x2}" y2="${slide.pulseLine.y2}"></line>`;
+                    if(slide.pulseLine2) linesHtml += `<line class="pulse-line" x1="${slide.pulseLine2.x1}" y1="${slide.pulseLine2.y1}" x2="${slide.pulseLine2.x2}" y2="${slide.pulseLine2.y2}"></line>`;
+                    if(slide.pulseLine3) linesHtml += `<line class="pulse-line" x1="${slide.pulseLine3.x1}" y1="${slide.pulseLine3.y1}" x2="${slide.pulseLine3.x2}" y2="${slide.pulseLine3.y2}"></line>`;
+
+                    trackHtml += `
+                        <div class="slide">
+                            <div class="slide-image-wrapper">
+                                <svg class="slide-svg" viewBox="0 0 200 120">
+                                    ${slide.svgBase ? `<use href="${slide.svgBase}"></use>` : ''}
+                                    ${slide.svgAction ? `<use href="${slide.svgAction}" transform="${slide.transform}"></use>` : ''}
+                                    ${slide.pulseTarget ? `<use href="${slide.pulseTarget}" class="pulse-solid"></use>` : ''}
+                                    ${linesHtml}
+                                </svg>
+                            </div>
+                            <div class="step-label">Step ${i+1} of ${totalSlidesCount}</div>
+                            <h3 class="slide-title">${slide.title}</h3>
+                            <p class="slide-text">${slide.text}</p>
+                        </div>
+                    `;
+                    dotsHtml += `<div class="dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></div>`;
+                });
+                container.innerHTML += `
+                    <div class="carousel-viewport" id="cViewport">
+                        <div class="carousel-track" id="cTrack">${trackHtml}</div>
+                    </div>
+                    <div class="controls">
+                        <button class="nav-btn-c" id="cPrevBtn" onclick="moveSlide(-1)" disabled>❮</button>
+                        <div class="pagination" id="cDots">${dotsHtml}</div>
+                        <button class="nav-btn-c" id="cNextBtn" onclick="moveSlide(1)">❯</button>
+                    </div>
+                `;
+                setTimeout(attachSwipeListeners, 10);
+            } else {
+                const safeHTML = activeGuideSkill.instructions ? activeGuideSkill.instructions : `<em>Detailed visuals for <strong>${activeGuideSkill.name}</strong> are currently under construction!</em>`;
+                container.innerHTML += `<div style="text-align:left; white-space: pre-wrap; margin-bottom: 20px;">${safeHTML}</div>`;
+            }
+
+            let currentRating = state[activeGuideKey + "_rating"] || 0;
+            let starsHtml = [5,4,3,2,1].map(num => `
+                <input type="radio" id="gStar${num}" name="guideRating" value="${num}" ${currentRating === num ? 'checked' : ''} onclick="submitGuideRating(${num})">
+                <label for="gStar${num}" title="${num} Stars">★</label>
+            `).join('');
+            
+            container.innerHTML += `
+                <div style="text-align: center; padding: 15px 0; border-top: 1px solid var(--border-color); margin: 5px 0;">
+                    <p style="margin: 0 0 10px 0; font-weight: bold; color: var(--theme-left); font-size: 0.8rem; letter-spacing: 1px;">
+                        RATE YOUR EXECUTION <span onclick="toggleRubric()" style="cursor:pointer; opacity:0.6; margin-left:4px; text-transform:none; font-weight:normal;">(?)</span>
+                    </p>
+                    <div id="rubricDetails" style="display:none; text-align:left; font-size:0.75rem; background:var(--dot-color); padding:10px; border-radius:6px; margin-bottom:10px; border: 1px solid var(--border-color); color:var(--text);">
+                        <strong>5★:</strong> Flawless, effortless.<br>
+                        <strong>4★:</strong> Great, but took hard focus.<br>
+                        <strong>3★:</strong> Good, but messy/needed help.<br>
+                        <strong>2★:</strong> Struggled, notable mistakes.<br>
+                        <strong>1★:</strong> Botched, start over.
+                    </div>
+                    <div class="star-rating" style="margin: 0;">${starsHtml}</div>
+                    ${currentRating > 0 ? `<span class="clear-rating-btn" onclick="clearGuideRating()">Clear Rating</span>` : ''}
+                </div>
+            `;
+
+            let noteContent = state[activeGuideKey + "_notes"]; 
+            if (!noteContent && noteContent !== "") noteContent = "";
+
+            // EASTER EGG DICTIONARY
+            let defaultPlaceholder = "No personal notes yet. Tap edit to write down your tips!";
+            const easterEggs = {
+                "c_prep_Knife Skills": "Did you cry? Be honest. Note your onion-cutting tears here.",
+                "hk_ami_Magic Ring": "If you summoned a demon by accident, document the counter-spell here.",
+                "mix_shake_The Hard Shake": "Note your 'shaker face' here (we all have one).",
+                "run_pace_Conversational Pace": "Are you actually breathing, or just wheezing quietly?",
+                "auto_fluids_Engine Oil": "Did you wipe it on your good jeans? (Write 'yes').",
+                "c_line_Heat Control": "If the water drop evaporated before it hit the pan, write your apologies to the chicken here."
+            };
+            let currentPlaceholder = easterEggs[activeGuideKey] || defaultPlaceholder;
+
+            container.innerHTML += `
+                <div class="notes-drawer">
+                    <div class="drawer-header" onclick="toggleNotesDrawer()">
+                        <span>📝 Field Notes</span>
+                        <span class="drawer-icon" id="drawerIcon">▼</span>
+                    </div>
+                    <div class="drawer-content" id="notesDrawerContent">
+                        <textarea id="guideEditor" placeholder="${currentPlaceholder}" style="width:100%; min-height: 100px; background:var(--bg); color:var(--text); border:1px solid var(--border-color); border-radius:8px; padding:10px; font-family:inherit; margin-bottom:10px; box-sizing:border-box;">${noteContent}</textarea>
+                        <button onclick="saveGuideNotes()" style="width:100%; padding:10px; background:var(--theme-left); color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">💾 Save Notes</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleNotesDrawer() {
+            const content = document.getElementById('notesDrawerContent');
+            const icon = document.getElementById('drawerIcon');
+            content.classList.toggle('open');
+            icon.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function submitGuideRating(stars) {
+            state[activeGuideKey + "_rating"] = stars; 
+            state[activeGuideKey] = true;
+            
+            // Mark as initialized so unlocks can animate
+            localStorage.setItem('branchOut_init_v3', 'true');
+            isFirstBoot = false;
+
+            save(); // Updates state and redraws background tree
+
+            let unlockedBosses = document.querySelectorAll('.newly-unlocked-boss');
+
+            // 1. Check for Level Up! (Boss Unlock)
+            if (unlockedBosses.length > 0) {
+                closeModal('guideModal');
+
+                unlockedBosses.forEach(bossCard => {
+                    // Trigger halo animation
+                    bossCard.classList.add('play-boss-unlock');
+
+                    // Shatter Padlock
+                    let shatteredLock = document.createElement('div');
+                    shatteredLock.className = 'lock-badge anim-shatter';
+                    shatteredLock.innerHTML = '🔓';
+                    shatteredLock.style.top = '-25px';
+                    bossCard.appendChild(shatteredLock);
+
+                    // Surge SVG Branch
+                    let parentId = bossCard.getAttribute('data-parent-id');
+                    if (parentId) {
+                        let path = document.querySelector(`path[data-target-id="${bossCard.id}"]`);
+                        if (path) path.classList.add('anim-surge');
+                    }
+                    setTimeout(() => shatteredLock.remove(), 1500);
+                });
+            } 
+            // 2. Otherwise, check for 5-Star Fanfare
+            else {
+                buildGuideUI(false); // Refresh UI to show stars
+
+                if (stars === 5 && !appSettings.motion) {
+                    const modalContent = document.querySelector('#guideModal .modal-content');
+                    modalContent.classList.remove('anim-bump'); 
+                    void modalContent.offsetWidth; 
+                    modalContent.classList.add('anim-bump');
+
+                    const starContainer = document.createElement('div');
+                    starContainer.className = 'starburst-container';
+                    modalContent.appendChild(starContainer);
+
+                    for(let i=0; i<5; i++) {
+                        let star = document.createElement('div');
+                        star.className = 'burst-star';
+                        star.innerHTML = '★';
+                        star.style.setProperty('--angle', (i * 72) + 'deg');
+                        starContainer.appendChild(star);
+                    }
+                    setTimeout(() => starContainer.remove(), 800);
+                }
+            }
+        }
+
+        function clearGuideRating() {
+            state[activeGuideKey] = false; delete state[activeGuideKey + "_rating"];
+            save(); buildGuideUI(false);
+        }
+
+        function saveGuideNotes() { 
+            state[activeGuideKey + "_notes"] = document.getElementById('guideEditor').value; 
+            save(); toggleNotesDrawer(); 
+        }
+
+        function updateCarouselUI() {
+            const track = document.getElementById('cTrack'); const prevBtn = document.getElementById('cPrevBtn'); const nextBtn = document.getElementById('cNextBtn'); const dots = document.querySelectorAll('#cDots .dot');
+            if(!track) return;
+            track.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
+            prevBtn.disabled = currentSlideIndex === 0; nextBtn.disabled = currentSlideIndex === totalSlidesCount - 1;
+            dots.forEach((dot, index) => { dot.classList.toggle('active', index === currentSlideIndex); });
+        }
+
+        function moveSlide(direction) { currentSlideIndex += direction; if (currentSlideIndex < 0) currentSlideIndex = 0; if (currentSlideIndex >= totalSlidesCount) currentSlideIndex = totalSlidesCount - 1; updateCarouselUI(); }
+        function goToSlide(index) { currentSlideIndex = index; updateCarouselUI(); }
+
+        let swipeStartX = 0; let isSwipingSlide = false;
+        function attachSwipeListeners() {
+            const v = document.getElementById('cViewport'); if(!v) return;
+            v.addEventListener('touchstart', (e) => { swipeStartX = e.touches[0].clientX; isSwipingSlide = true; }, {passive: true});
+            v.addEventListener('touchmove', (e) => { if (!isSwipingSlide) return; }, {passive: true});
+            v.addEventListener('touchend', (e) => {
+                if (!isSwipingSlide) return; isSwipingSlide = false; let diffX = swipeStartX - e.changedTouches[0].clientX;
+                if (Math.abs(diffX) > 40) { if (diffX > 0) moveSlide(1); else moveSlide(-1); }
+            });
+        }
+
+        // --- RENDER ENGINE & SVG TREE DRAWING ---
+        function render() {
+            const project = projectLibrary[currentProjectKey]; 
+            const container = document.getElementById('forest-container'); 
+            
+            const oldCanvas = document.getElementById('treeCanvas');
+            container.innerHTML = ''; 
+            container.appendChild(oldCanvas);
+
+            document.documentElement.style.setProperty('--theme-left', project.colors.left);
+            document.documentElement.style.setProperty('--biome-bg', project.colors.bg || '#fdf8e4');
+            document.documentElement.style.setProperty('--biome-header', project.colors.header || 'rgba(253, 248, 228, 0.85)');
+            
+            const pRow = document.createElement('div'); pRow.className = 'parallel-row';
+            if (project.leftTree) renderTreeColumn(pRow, project.leftTree, 'theme-left');
+            if (project.rightTree) renderTreeColumn(pRow, project.rightTree, 'theme-right');
+            container.appendChild(pRow);
+            
+            document.querySelectorAll('.parallel-col').forEach((p, i) => { 
+                p.classList.toggle('active-pillar', i === activeIndex); 
+                p.classList.toggle('inactive-pillar', i !== activeIndex); 
+            });
+            
+            setTimeout(drawTreeCanvas, 50);
+
+            container.style.transform = `translateX(${panX}px) translateY(${panY}px) scale(${currentZoom})`;
+
+            // On first boot, mark everything as seen so they don't all "Level Up" instantly
+            if (isFirstBoot) {
+                isFirstBoot = false;
+                localStorage.setItem('branchOut_init_v3', 'true');
+            }
+        }
+
+        function drawTreeCanvas() {
+            const canvas = document.getElementById('treeCanvas');
+            if(!canvas) return;
+            canvas.innerHTML = '';
+            
+            const project = projectLibrary[currentProjectKey];
+            const activeColor = project.flora ? project.flora.branchActive : 'var(--theme-left)';
+            const inactiveColor = project.flora ? project.flora.branchInactive : 'var(--border-color)';
+
+            const cards = document.querySelectorAll('.active-pillar .node-card[data-parent-id]');
+            const forestRect = document.getElementById('forest-container').getBoundingClientRect();
+
+            cards.forEach(card => {
+                const parentId = card.getAttribute('data-parent-id');
+                const parentCard = document.getElementById(`card-${parentId}`);
+                if(!parentCard) return;
+
+                const rect1 = card.getBoundingClientRect();
+                const rect2 = parentCard.getBoundingClientRect();
+                
+                const isCard1Top = rect1.top < rect2.top;
+                const topRect = isCard1Top ? rect1 : rect2;
+                const bottomRect = isCard1Top ? rect2 : rect1;
+                const topCardEl = isCard1Top ? card : parentCard;
+                const bottomCardEl = isCard1Top ? parentCard : card;
+
+                const topX = (topRect.left - forestRect.left) / currentZoom + topCardEl.offsetWidth / 2;
+                const topY = (topRect.bottom - forestRect.top) / currentZoom;
+                const bottomX = (bottomRect.left - forestRect.left) / currentZoom + bottomCardEl.offsetWidth / 2;
+                const bottomY = (bottomRect.top - forestRect.top) / currentZoom;
+
+                const isPassed = card.classList.contains('dist-completed') || card.classList.contains('dist-playable');
+                const color = isPassed ? activeColor : inactiveColor;
+                const width = isPassed ? 6 : 3;
+
+                const verticalDist = bottomY - topY;
+                const cpOffset = verticalDist * 0.65;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const d = `M ${topX} ${topY} C ${topX} ${topY + cpOffset}, ${bottomX} ${bottomY - cpOffset}, ${bottomX} ${bottomY}`;
+                
+                path.setAttribute('d', d);
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', width);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke-linecap', 'round');
+                
+                // Allow JS to find this path later for the Surge animation
+                path.setAttribute('data-target-id', card.id);
+                
+                path.style.transition = "stroke 0.5s, stroke-width 0.5s";
+                canvas.appendChild(path);
+            });
+        }
+
+        function renderTreeColumn(container, treeData, theme) {
+            if (treeData.tier1.layout === 'parallel') {
+                treeData.tier1.paths.forEach((pathData) => {
+                    const col = document.createElement('div'); col.className = 'parallel-col inactive-pillar'; let frontlineDist = 0; 
+                    const rootWrapper = document.createElement('div'); rootWrapper.className = 'root-node-wrapper';
+                    rootWrapper.addEventListener('click', () => { const idx = Array.from(document.querySelectorAll('.parallel-col')).indexOf(col); if(idx !== activeIndex) centerOnPillar(idx, true); });
+                    const upperWrapper = document.createElement('div'); upperWrapper.className = 'upper-branches';
+
+                    pathData.nodes.forEach((node, nodeIdx) => {
+                        const isPassed = isNodePassed(node); let myDist = isPassed ? -1 : frontlineDist; if (!isPassed) frontlineDist++;
+                        const parentNode = nodeIdx > 0 ? pathData.nodes[nodeIdx - 1] : null; const card = createCard(node, pathData.theme || theme, myDist, parentNode);
+                        if (nodeIdx === 0) rootWrapper.appendChild(card); else { card.classList.add('stacked-node'); upperWrapper.appendChild(card); }
+                    });
+                    
+                    if (pathData.branches) { upperWrapper.appendChild(renderBranchesRecursively(pathData.branches, pathData.theme || theme, frontlineDist, pathData.nodes[pathData.nodes.length - 1])); }
+                    col.appendChild(rootWrapper); col.appendChild(upperWrapper); container.appendChild(col);
+                });
+            } 
+            else if (treeData.tier1.layout === 'converge') {
+                const col = document.createElement('div'); col.className = 'parallel-col inactive-pillar'; let frontlineDist = 0;
+                let rootsEarned = 0; let rootsMax = 0;
+                treeData.tier1.roots.forEach(node => { rootsEarned += getEarnedStars(node); rootsMax += (node.passReq || (node.skills ? node.skills.length * 5 : 0)); });
+                const rootsComplete = rootsEarned >= Math.floor(rootsMax / 2);
+
+                const rootWrapper = document.createElement('div'); rootWrapper.className = 'root-node-wrapper foundation-row';
+                rootWrapper.addEventListener('click', () => { const idx = Array.from(document.querySelectorAll('.parallel-col')).indexOf(col); if(idx !== activeIndex) centerOnPillar(idx, true); });
+                
+                const middleNodeId = treeData.tier1.middle ? treeData.tier1.middle.id : null;
+
+                treeData.tier1.roots.forEach(node => { 
+                    let card = createCard(node, theme, isNodePassed(node) ? -1 : 0, null, middleNodeId); 
+                    card.classList.add('root-card'); rootWrapper.appendChild(card); 
+                });
+
+                if (!rootsComplete) frontlineDist++;
+                const upperWrapper = document.createElement('div'); upperWrapper.className = 'upper-branches';
+
+                const middleNode = treeData.tier1.middle; const middleComplete = isNodePassed(middleNode); let midDist = middleComplete ? -1 : frontlineDist; if (!middleComplete) frontlineDist++;
+                const midCard = createCard(middleNode, theme, midDist, null); midCard.classList.add('stacked-node'); upperWrapper.appendChild(midCard);
+
+                const bossNode = treeData.tier1.boss; const bossComplete = isNodePassed(bossNode); let bossDist = bossComplete ? -1 : frontlineDist; if (!bossComplete) frontlineDist++;
+                const bossCard = createCard(bossNode, theme, bossDist, middleNode); bossCard.classList.add('stacked-node'); upperWrapper.appendChild(bossCard);
+                
+                if (treeData.tier2) { upperWrapper.appendChild(renderBranchesRecursively(treeData.tier2.branches, theme, frontlineDist, bossNode)); }
+                col.appendChild(rootWrapper); col.appendChild(upperWrapper); container.appendChild(col);
+            }
+        }
+
+        function renderBranchesRecursively(branches, theme, frontlineDist, parentNode) {
+            const row = document.createElement('div'); row.className = `branch-row ${theme}`;
+            branches.forEach(b => {
+                const col = document.createElement('div'); col.className = `branch-col`; let currentDist = frontlineDist; const nodesToRender = b.nodes || [b];
+                nodesToRender.forEach((node, idx) => {
+                    const isPassed = isNodePassed(node); let myDist = isPassed ? -1 : currentDist; if (!isPassed) currentDist++;
+                    const card = createCard(node, b.theme || theme, myDist, idx > 0 ? nodesToRender[idx - 1] : parentNode);
+                    if (idx > 0) card.classList.add('stacked-node'); col.appendChild(card);
+                });
+                if (b.branches || b.subBranches) { col.appendChild(renderBranchesRecursively(b.branches || b.subBranches, b.theme || theme, currentDist, nodesToRender[nodesToRender.length - 1])); }
+                row.appendChild(col);
+            });
+            return row;
+        }
+
+        function createCard(node, theme, dist, parentNode, customParentIdForRoot = null) {
+            const cardTheme = node.theme || theme; const isGatewayOrBoss = node.isBoss || node.isGateway;
+            let distClass = dist === -1 ? 'dist-completed' : (dist === 0 ? 'dist-playable' : (dist === 1 ? 'dist-locked-1' : (dist === 2 ? 'dist-locked-2' : 'dist-locked-3')));
+            
+            const wrapper = document.createElement('div'); wrapper.style.position = 'relative';
+            const div = document.createElement('div'); div.className = `node-card ${cardTheme} ${isGatewayOrBoss ? 'gateway-card' : ''} ${distClass}`;
+            div.id = `card-${node.id}`;
+
+            // FTUE PULSE: If the user has 0 total stars in the app, pulse the very first node (dist === 0)
+            let isAbsolutelyNew = Object.keys(state).filter(k => k.endsWith('_rating')).length === 0;
+            if (isAbsolutelyNew && dist === 0) {
+                div.classList.add('ftue-pulse');
+            }
+
+            if (isGatewayOrBoss && dist === -1) div.classList.add('unlocked-boss');
+
+            if (parentNode && parentNode.id) { div.setAttribute('data-parent-id', parentNode.id); }
+            if (customParentIdForRoot) { div.setAttribute('data-parent-id', customParentIdForRoot); }
+
+            // TRACK UNLOCK STATE FOR THE ANIMATION
+            if (dist === 0 || dist === -1) {
+                if (!state['unlocked_' + node.id]) {
+                    state['unlocked_' + node.id] = true;
+                    // Only trigger the "Level Up" class if it's not the very first time the app is opened
+                    if (!isFirstBoot && isGatewayOrBoss && dist === 0) {
+                        div.classList.add('newly-unlocked-boss');
+                    }
+                }
+            }
+
+            let badgeHtml = '';
+            if (parentNode && (dist === 1 || dist === 0)) {
+                let earned = 0; let req = 0;
+                if (Array.isArray(parentNode)) {
+                    let rootsMax = 0; parentNode.forEach(p => { earned += getEarnedStars(p); rootsMax += p.passReq || ((p.skills || []).length * 5); }); req = Math.floor(rootsMax / 2); 
+                } else { earned = getEarnedStars(parentNode); req = parentNode.passReq || ((parentNode.skills || []).length * 5); }
+                if (dist === 1) badgeHtml = `<div class="lock-badge">🔒 ${earned} / ${req} ⭐</div>`;
+                else if (dist === 0) badgeHtml = `<div class="lock-badge" style="border-color: var(--unlocked-accent); color: var(--unlocked-accent);">🔓 ${earned} / ${req} ⭐</div>`;
+            }
+
+            const skillsHtml = (node.skills || []).map(s => {
+                const key = node.id + "_" + s.name; const r = state[key + "_rating"] || 0;
+                const control = `<input type="checkbox" ${state[key] === true ? 'checked' : ''} style="pointer-events:none;">`;
+                const skillJsonSafe = encodeURIComponent(JSON.stringify(s)).replace(/'/g, "%27");
+                let starsStr = r > 0 ? Array.from({length: 5}, (_, i) => `<span class="star-${i < r ? 'filled' : 'empty'}">★</span>`).join('') : '';
+                return `
+                    <div class="skill-group" onclick="openGuide('${key}', '${node.title.replace(/'/g, "\\'")}', '${skillJsonSafe}')">
+                        <div class="skill-header">
+                            <div class="skill-name-wrapper"><span class="skill-name">${s.name}</span></div>
+                            ${control}
+                        </div>
+                        <div class="star-display">${starsStr}</div>
+                        <span class="skill-desc">${s.desc}</span>
+                    </div>`;
+            }).join('');
+
+            div.innerHTML = `<div class="title">${node.title}</div>${skillsHtml}`;
+            if (badgeHtml) wrapper.innerHTML = badgeHtml; wrapper.appendChild(div); return wrapper;
+        }
+
+        // --- INFINITE CANVAS ---
+        const viewport = document.getElementById('viewport'); let isDragging = false, dragStartX, dragStartY, initialPanY, dragStartTime;
+        viewport.addEventListener('mousedown', (e) => {
+            if(e.target.closest('.node-card') || e.target.closest('.modal-content') || e.target.closest('.floating-controls') || e.target.closest('.nav-arrow') || e.target.closest('.app-header')) return;
+            isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY; initialPanY = panY; dragStartTime = Date.now(); viewport.style.cursor = 'grabbing';
+        });
+        window.addEventListener('mousemove', (e) => { if (!isDragging) return; e.preventDefault(); panY = initialPanY + (e.clientY - dragStartY); if (panY < 0) panY = 0; updateTransform(false); });
+        window.addEventListener('mouseup', (e) => { 
+            if (!isDragging) return; isDragging = false; viewport.style.cursor = 'grab'; 
+            let deltaX = e.clientX - dragStartX; let timeDiff = Date.now() - dragStartTime;
+            if ((Math.abs(deltaX) > 50 && timeDiff < 400) || Math.abs(deltaX) > window.innerWidth / 3) { if (deltaX > 0) slideCarouselPillar(-1); else slideCarouselPillar(1); } else updateTransform(true);
+        });
+
+        let touchStartX, touchStartY, touchInitialPanY, touchStartTime;
+        viewport.addEventListener('touchstart', (e) => {
+            if(e.target.closest('.node-card') || e.target.closest('.modal-content') || e.target.closest('.floating-controls') || e.target.closest('.nav-arrow') || e.target.closest('.app-header')) return;
+            if(e.touches.length === 1) { isDragging = true; touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; touchInitialPanY = panY; touchStartTime = Date.now(); }
+        }, {passive: false});
+        window.addEventListener('touchmove', (e) => { if (isDragging && e.touches.length === 1) { e.preventDefault(); panY = touchInitialPanY + (e.touches[0].clientY - touchStartY); if (panY < 0) panY = 0; updateTransform(false); } }, {passive: false});
+        window.addEventListener('touchend', (e) => { 
+            if (!isDragging) return; isDragging = false;
+            let deltaX = e.changedTouches[0].clientX - touchStartX; let deltaY = e.changedTouches[0].clientY - touchStartY; let timeDiff = Date.now() - touchStartTime;
+            if (Math.abs(deltaX) > Math.abs(deltaY) * 1.5) { if ((Math.abs(deltaX) > 40 && timeDiff < 400) || Math.abs(deltaX) > window.innerWidth / 3) { if (deltaX > 0) slideCarouselPillar(-1); else slideCarouselPillar(1); return; } }
+            updateTransform(true);
+        });
+
+        window.addEventListener('resize', () => { setTimeout(drawTreeCanvas, 100); });
+
+    </script>
+</body>
+</html>
